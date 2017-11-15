@@ -50,8 +50,8 @@ void RocmBandwidthTest::PrintHelpScreen() {
   std::cout << "Supported arguments:" << std::endl;
   std::cout << std::endl;
   std::cout << "\t -h    Prints the help screen" << std::endl;
+  std::cout << "\t -v    Run the test in validation mode" << std::endl;
   std::cout << "\t -c    Time the operation using CPU Timers" << std::endl;
-  std::cout << "\t -v    Verifies the output of transfer operations" << std::endl;
   std::cout << "\t -t    Prints system topology and allocatable memory info" << std::endl;
   std::cout << "\t -m    List of buffer sizes to use, specified in Megabytes" << std::endl;
   std::cout << "\t -b    List devices to use in bidirectional copy operations" << std::endl;
