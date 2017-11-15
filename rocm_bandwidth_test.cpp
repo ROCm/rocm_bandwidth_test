@@ -49,6 +49,7 @@
 #include <unistd.h>
 #include <cctype>
 #include <sstream>
+#include <limits>
 
 // The values are in megabytes at allocation time
 const uint32_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
@@ -296,6 +297,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       break;
     }
 
+    bool verify = true;
     std::vector<double> cpu_time;
     std::vector<double> gpu_time;
     for (uint32_t it = 0; it < iterations; it++) {
@@ -391,9 +393,9 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         // Compare output equals input
         err_ = (hsa_status_t)memcmp(validation_src, validation_dst, curr_size);
         if (err_ != HSA_STATUS_SUCCESS) {
-          PrintCopyAccessError(src_idx, dst_idx);
+          verify = false;
+          exit_value_ = err_;
         }
-        ErrorCheck(err_);
       }
     }
 
@@ -404,12 +406,14 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
 
     if (print_cpu_time_ == false) {
       if (trans.copy.uses_gpu_) {
-        // Get Gpu min copy time
-        trans.gpu_min_time_.push_back(GetMinTime(gpu_time));
-        // Get Gpu mean copy time and store to the array
-        trans.gpu_avg_time_.push_back(GetMeanTime(gpu_time));
+        // Get Gpu min and mean copy times
+        double min_time = (verify) ? GetMinTime(gpu_time) : std::numeric_limits<double>::max();
+        double mean_time = (verify) ? GetMeanTime(gpu_time) : std::numeric_limits<double>::max();
+        trans.gpu_min_time_.push_back(min_time);
+        trans.gpu_avg_time_.push_back(mean_time);
       }
     }
+    verify = true;
 
     // Clear the stack of cpu times
     cpu_time.clear();
@@ -523,6 +527,8 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
   bw_blocking_run_ = getenv("ROCR_BW_RUN_BLOCKING");
   skip_fine_grain_ = getenv("ROCM_SKIP_FINE_GRAINED_POOL");
+
+  exit_value_ = 0;
 }
 
 RocmBandwidthTest::~RocmBandwidthTest() { }

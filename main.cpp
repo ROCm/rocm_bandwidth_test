@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
   if (arg_cnt != 1) {
     bw_test1.Display();
     bw_test1.Close();
-    return 0;
+    return bw_test1.GetExitValue();
   }
 
   // Run the second iteration of copy requests

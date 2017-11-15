@@ -344,9 +344,10 @@ void RocmBandwidthTest::DisplayValidationMatrix() const {
       double value = perf_matrix[(idx0 * agent_index_) + idx1];
       if (value == 0) {
         std::cout << "N/A";
+      } else if (value < 1) {
+        std::cout << "FAIL";
       } else {
         std::cout << "PASS";
-        // std::cout << perf_matrix[(idx0 * agent_index_) + idx1];
       }
     }
     std::cout << std::endl;
