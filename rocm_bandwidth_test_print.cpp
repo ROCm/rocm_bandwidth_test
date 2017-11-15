@@ -278,12 +278,16 @@ void RocmBandwidthTest::PrintCopyAccessError(uint32_t src_idx, uint32_t dst_idx)
   hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
 
   std::cout << std::endl;
-  std::cout << "Index of Src Memory: " << src_idx << std::endl;
-  std::cout << "Index of Dst Memory: " << dst_idx << std::endl;
-  std::cout << "Index of Src Device: " << src_dev_idx << std::endl;
-  std::cout << "Index of Dst Device: " << dst_dev_idx << std::endl;
-  std::cout << "Device Type of Src Device: " << src_dev_type << std::endl;
-  std::cout << "Device Type of Dst Device: " << dst_dev_type << std::endl;
+  //std::cout << "Index of Src Memory: " << src_idx << std::endl;
+  //std::cout << "Index of Dst Memory: " << dst_idx << std::endl;
+  std::cout << "Src Device: Index "
+            << src_dev_idx
+            << ", Type: "
+            << ((src_dev_type == HSA_DEVICE_TYPE_CPU) ? "CPU" : "GPU") << std::endl;
+  std::cout << "Dst Device: Index "
+            << dst_dev_idx
+            << ", Type: "
+            << ((dst_dev_type == HSA_DEVICE_TYPE_CPU) ? "CPU" : "GPU") << std::endl;
   std::cout << "Rocm Device hosting Src Memory cannot ACCESS Dst Memory" << std::endl;
   std::cout << std::endl;
 }
