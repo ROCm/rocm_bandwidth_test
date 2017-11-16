@@ -109,9 +109,10 @@ void RocmBandwidthTest::ParseArguments() {
         print_topology = true;
         break;
 
-      // Set verification flag to true
+      // Set validation mode flag to true
       case 'v':
-        verify_ = true;
+        validate_ = true;
+        req_copy_all_unidir_ = REQ_COPY_ALL_UNIDIR;
         break;
 
       // Collect list of agents involved in bidirectional copy operation
@@ -227,7 +228,7 @@ void RocmBandwidthTest::ParseArguments() {
   }
 
   // Initialize buffer list if full copying in unidirectional mode is enabled
-  if (copy_all_uni) {
+  if ((copy_all_uni) || (validate_)) {
     uint32_t size = pool_list_.size();
     for (uint32_t idx = 0; idx < size; idx++) {
       src_list_.push_back(idx);
@@ -248,7 +249,7 @@ void RocmBandwidthTest::ParseArguments() {
   if (size_list_.size() == 0) {
     uint32_t size_len = sizeof(SIZE_LIST)/sizeof(uint32_t);
     for (uint32_t idx = 0; idx < size_len; idx++) {
-      if ((copy_all_bi) || (copy_all_uni)) {
+      if ((copy_all_bi) || (copy_all_uni) || (validate_)) {
         if (idx == 16) {
           size_list_.push_back(SIZE_LIST[idx]);
         }

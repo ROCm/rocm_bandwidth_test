@@ -250,6 +250,7 @@ class RocmBandwidthTest : public BaseTest {
   void DisplayIOTime(async_trans_t& trans) const;
   void DisplayCopyTime(async_trans_t& trans) const;
   void DisplayCopyTimeMatrix(bool peak) const;
+  void DisplayValidationMatrix() const;
 
   private:
 
@@ -410,10 +411,10 @@ class RocmBandwidthTest : public BaseTest {
   // Flag to print Cpu time
   bool print_cpu_time_;
 
-  // Determines if user has requested verification
-  bool verify_;
+  // Determines if user has requested validation
+  bool validate_;
 
-  // CPU agent used for verification
+  // CPU agent used for validation
   int32_t cpu_index_;
   hsa_agent_t cpu_agent_;
 

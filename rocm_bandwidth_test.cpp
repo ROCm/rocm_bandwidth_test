@@ -62,7 +62,7 @@ const uint32_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
                                  256 * 1024 * 1024, 512 * 1024 * 1024 };
 
 uint32_t RocmBandwidthTest::GetIterationNum() {
-  return num_iteration_ * 1.2 + 1;
+  return (validate_) ? 1 : (num_iteration_ * 1.2 + 1);
 }
 
 void RocmBandwidthTest::AcquireAccess(hsa_agent_t agent, void* ptr) {
@@ -222,7 +222,6 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   // Initialize size of buffer to equal the largest element of allocation
   uint32_t size_len = size_list_.size();
   uint32_t max_size = size_list_.back();
-  // uint32_t max_size = size_list_.back() * 1024 * 1024;
 
   // Bind to resources such as pool and agents that are involved
   // in both forward and reverse copy operations
@@ -230,14 +229,11 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   void* buf_dst_fwd;
   void* buf_src_rev;
   void* buf_dst_rev;
-  void* host_src_fwd;
-  void* host_dst_fwd;
-  void* host_src_rev;
-  void* host_dst_rev;
+  void* validation_dst;
+  void* validation_src;
   hsa_signal_t signal_fwd;
   hsa_signal_t signal_rev;
-  hsa_signal_t host_signal_fwd;
-  hsa_signal_t host_signal_rev;
+  hsa_signal_t validation_signal;
   uint32_t src_idx = trans.copy.src_idx_;
   uint32_t dst_idx = trans.copy.dst_idx_;
   uint32_t src_dev_idx_fwd = pool_list_[src_idx].agent_index_;
@@ -272,36 +268,19 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
                         signal_rev);
   }
 
-  if (verify_) {
+  if (validate_) {
     AllocateHostBuffers(max_size,
                         src_dev_idx_fwd,
                         dst_dev_idx_fwd,
-                        host_src_fwd, host_dst_fwd,
+                        validation_src, validation_dst,
                         buf_src_fwd, buf_dst_fwd,
                         src_agent_fwd, dst_agent_fwd,
-                        host_signal_fwd);
-
-    if (bidir) {
-      AllocateHostBuffers(max_size,
-                          src_dev_idx_rev,
-                          dst_dev_idx_rev,
-                          host_src_rev, host_dst_rev,
-                          buf_src_rev, buf_dst_rev,
-                          src_agent_rev, dst_agent_rev,
-                          host_signal_rev);
-    }
+                        validation_signal);
 
     // Initialize source buffer with values from verification buffer
     copy_buffer(buf_src_fwd, src_agent_fwd,
-                host_src_fwd, cpu_agent_,
-                max_size, host_signal_fwd);
-    ErrorCheck(err_);
-    if (bidir) {
-      copy_buffer(buf_src_rev, src_agent_rev,
-                  host_src_rev, cpu_agent_,
-                  max_size, host_signal_rev);
-      ErrorCheck(err_);
-    }
+                validation_src, cpu_agent_,
+                max_size, validation_signal);
   }
 
   // Bind the number of iterations
@@ -313,7 +292,6 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
     
     // This should not be happening
     uint32_t curr_size = size_list_[idx];
-    // uint32_t curr_size = size_list_[idx] * 1024 * 1024;
     if (curr_size > max_size) {
       break;
     }
@@ -331,17 +309,11 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         hsa_signal_store_relaxed(signal_rev, 1);
       }
 
-      if (verify_) { 
+      if (validate_) { 
         AcquirePoolAcceses(src_dev_idx_fwd,
                            src_agent_fwd, buf_src_fwd,
                            dst_dev_idx_fwd,
                            dst_agent_fwd, buf_dst_fwd);
-        if (bidir) {
-          AcquirePoolAcceses(src_dev_idx_rev,
-                             src_agent_rev, buf_src_rev,
-                             dst_dev_idx_rev,
-                             dst_agent_rev, buf_dst_rev);
-        }
       }
 
       // Create a timer object and reset signals
@@ -403,41 +375,25 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         }
       }
 
-      if (verify_) {
+      if (validate_) {
 
         // Re-Establish access to destination buffer and host buffer
         AcquirePoolAcceses(dst_dev_idx_fwd,
                            dst_agent_fwd, buf_dst_fwd,
-                           cpu_index_, cpu_agent_, host_dst_fwd);
+                           cpu_index_, cpu_agent_, validation_dst);
 
         // Init dst buffer with values from outbuffer of copy operation
-        hsa_signal_store_relaxed(host_signal_fwd, 1);
-        copy_buffer(host_dst_fwd, cpu_agent_,
+        hsa_signal_store_relaxed(validation_signal, 1);
+        copy_buffer(validation_dst, cpu_agent_,
                     buf_dst_fwd, dst_agent_fwd,
-                    curr_size, host_signal_fwd);
-        ErrorCheck(err_);
+                    curr_size, validation_signal);
 
         // Compare output equals input
-        err_ = (hsa_status_t)memcmp(host_src_fwd, host_dst_fwd, curr_size);
-        ErrorCheck(err_);
-
-        if (bidir) {
-
-          // Re-Establish access to destination buffer and host buffer
-          AcquirePoolAcceses(dst_dev_idx_rev,
-                             dst_agent_rev, buf_dst_rev,
-                             cpu_index_, cpu_agent_, host_dst_rev);
-
-          hsa_signal_store_relaxed(host_signal_rev, 1);
-          copy_buffer(host_dst_rev, cpu_agent_,
-                      buf_dst_rev, dst_agent_rev,
-                      curr_size, host_signal_rev);
-          ErrorCheck(err_);
-
-          // Compare output equals input
-          err_ = (hsa_status_t)memcmp(host_src_rev, host_dst_rev, curr_size);
-          ErrorCheck(err_);
+        err_ = (hsa_status_t)memcmp(validation_src, validation_dst, curr_size);
+        if (err_ != HSA_STATUS_SUCCESS) {
+          PrintCopyAccessError(src_idx, dst_idx);
         }
+        ErrorCheck(err_);
       }
     }
 
@@ -464,9 +420,10 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   ReleaseBuffers(bidir, buf_src_fwd, buf_src_rev,
                  buf_dst_fwd, buf_dst_rev, signal_fwd, signal_rev);
 
-  if (verify_) {
-    ReleaseBuffers(bidir, host_src_fwd, host_src_rev,
-                   host_dst_fwd, host_dst_rev, host_signal_fwd, host_signal_rev);
+  if (validate_) {
+    hsa_signal_t fake_signal{0};
+    ReleaseBuffers(false, validation_src, NULL,
+                   validation_dst, NULL, validation_signal, fake_signal);
   }
 }
 
@@ -560,7 +517,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   access_matrix_ = NULL;
   active_agents_list_ = NULL;
   
-  verify_ = false;
+  validate_ = false;
   print_cpu_time_ = false;
 
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
