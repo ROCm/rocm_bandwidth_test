@@ -194,6 +194,9 @@ class RocmBandwidthTest : public BaseTest {
   // @brief: Display the results
   virtual void Display() const;
 
+  // @brief: Return exit value, useful in case of error
+  int32_t GetExitValue() { return exit_value_; }
+
  private:
 
   // @brief: Print Help Menu Screen
@@ -251,8 +254,8 @@ class RocmBandwidthTest : public BaseTest {
   void DisplayCopyTime(async_trans_t& trans) const;
   void DisplayCopyTimeMatrix(bool peak) const;
   void DisplayValidationMatrix() const;
-
-  private:
+ 
+ private:
 
   // @brief: Validate the arguments passed in by user
   bool ValidateArguments();
@@ -424,6 +427,8 @@ class RocmBandwidthTest : public BaseTest {
   // static const uint32_t SIZE_LIST[4];
   static const uint32_t SIZE_LIST[20];
 
+  // Exit value to return in case of error
+  int32_t exit_value_;
 };
 
 #endif      //  __ROC_BANDWIDTH_TEST_H__
