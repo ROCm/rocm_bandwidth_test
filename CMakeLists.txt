@@ -17,7 +17,11 @@ cmake_minimum_required(VERSION 2.8.0)
 #  3) Enter into folder of build, and run CMAKE to generate makefile
 #     and make it
 #
-#     cd build; cmake ..; make
+#     cd build
+#     cmake -DROCR_INC_DIR=ROCR_INC_DIR -DROCR_LIB_DIR=$ROCR_LIB_DIR ..
+#     make
+#
+#     @note: Add -DCMAKE_BUILD_TYPE=Debug if you want to build Debug
 #
 
 if(WIN32)
@@ -33,7 +37,7 @@ SET( CMAKE_VERBOSE_MAKEFILE on )
 #
 # Determin Roc Runtime header files are accessible
 #
-if(NOT EXISTS $ENV{ROCR_INC_DIR}/hsa/hsa.h)
+if(NOT EXISTS ${ROCR_INC_DIR}/hsa/hsa.h)
   MESSAGE("ERROR: ROC Runtime headers can't be found under specified path")
   RETURN()
 endif()
@@ -47,7 +51,7 @@ set ( ROC_THUNK_LIBRARY "lib${ROC_THUNK_NAME}" )
 set ( CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64" )
 set ( CORE_RUNTIME_LIBRARY "lib${CORE_RUNTIME_TARGET}" )
 
-if(NOT EXISTS $ENV{ROCR_LIB_DIR}/${CORE_RUNTIME_LIBRARY}.so)
+if(NOT EXISTS ${ROCR_LIB_DIR}/${CORE_RUNTIME_LIBRARY}.so)
   MESSAGE("ERROR: ROC Runtime libraries can't be found under sprcified path")
   RETURN()
 endif()
@@ -82,9 +86,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-extensions")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmerge-all-constants")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-threadsafe-statics")
 
-INCLUDE_DIRECTORIES($ENV{ROCR_INC_DIR})
+INCLUDE_DIRECTORIES(${ROCR_INC_DIR})
 
-LINK_DIRECTORIES($ENV{ROCR_LIB_DIR})
+LINK_DIRECTORIES(${ROCR_LIB_DIR})
 
 # Add sources that belong to the project
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
