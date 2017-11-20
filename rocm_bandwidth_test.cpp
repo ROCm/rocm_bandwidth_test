@@ -425,7 +425,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
                  buf_dst_fwd, buf_dst_rev, signal_fwd, signal_rev);
 
   if (validate_) {
-    hsa_signal_t fake_signal{0};
+    hsa_signal_t fake_signal = {0};
     ReleaseBuffers(false, validation_src, NULL,
                    validation_dst, NULL, validation_signal, fake_signal);
   }

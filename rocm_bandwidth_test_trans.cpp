@@ -73,7 +73,7 @@ bool RocmBandwidthTest::BuildReadOrWriteTrans(uint32_t req_type,
     // Agent has access, build an instance of transaction
     // and add it to the list of transactions
     async_trans_t trans(req_type);
-    trans.kernel.code_ = nullptr;
+    trans.kernel.code_ = NULL;
     trans.kernel.pool_ = pool;
     trans.kernel.pool_idx_ = pool_idx;
     trans.kernel.agent_ = exec_agent;

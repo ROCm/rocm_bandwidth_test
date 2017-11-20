@@ -46,7 +46,7 @@ void error_check(hsa_status_t hsa_error_code, int line_num, const char* str) {
   if (hsa_error_code != HSA_STATUS_SUCCESS &&
       hsa_error_code != HSA_STATUS_INFO_BREAK) {
     printf("HSA Error Found!  In file: %s;   At line: %d\n", str, line_num);
-    const char* string = nullptr;
+    const char* string = NULL;
     hsa_status_string(hsa_error_code, &string);
     printf("Error: %s\n", string);
     exit(EXIT_FAILURE);

@@ -47,6 +47,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <stdio.h>
 #include "hsa/hsa.h"
 #include "hsa/hsa_ext_amd.h"
 
