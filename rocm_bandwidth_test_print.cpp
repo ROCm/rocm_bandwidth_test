@@ -50,6 +50,7 @@ void RocmBandwidthTest::PrintHelpScreen() {
   std::cout << "Supported arguments:" << std::endl;
   std::cout << std::endl;
   std::cout << "\t -h    Prints the help screen" << std::endl;
+  std::cout << "\t -q    Query version of the test" << std::endl;
   std::cout << "\t -v    Run the test in validation mode" << std::endl;
   std::cout << "\t -c    Time the operation using CPU Timers" << std::endl;
   std::cout << "\t -t    Prints system topology and allocatable memory info" << std::endl;
@@ -63,6 +64,18 @@ void RocmBandwidthTest::PrintHelpScreen() {
 
   std::cout << std::endl;
 
+}
+
+// @brief: Print the version of the test
+void RocmBandwidthTest::PrintVersion() const {
+
+  uint32_t format = 10;
+  std::cout.setf(ios::left);
+
+  std::cout << std::endl;
+  std::cout.width(format);
+  std::cout << "";
+  std::cout << "RocmBandwidthTest Version: " << GetVersion() << std::endl;
 }
 
 // @brief: Print the topology of Memory Pools and Devices present in system
