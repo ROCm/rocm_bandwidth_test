@@ -524,6 +524,12 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   validate_ = false;
   print_cpu_time_ = false;
 
+  // Initialize version of the test
+  version_.major_id = 1;
+  version_.minor_id = 0;
+  version_.step_id = 0;
+  version_.reserved = 0;
+
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
   bw_blocking_run_ = getenv("ROCR_BW_RUN_BLOCKING");
   skip_fine_grain_ = getenv("ROCM_SKIP_FINE_GRAINED_POOL");
@@ -532,4 +538,13 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 }
 
 RocmBandwidthTest::~RocmBandwidthTest() { }
+
+std::string RocmBandwidthTest::GetVersion() const {
+
+  std::stringstream stream;
+  stream << version_.major_id << ".";
+  stream << version_.minor_id << ".";
+  stream << version_.step_id;
+  return stream.str();
+}
 

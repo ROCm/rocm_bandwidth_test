@@ -82,6 +82,7 @@ void RocmBandwidthTest::ParseArguments() {
   bool print_help = false;
   bool copy_all_bi = false;
   bool copy_all_uni = false;
+  bool print_version = false;
   bool print_topology = false;
 
   // This will suppress prints from getopt implementation
@@ -91,12 +92,17 @@ void RocmBandwidthTest::ParseArguments() {
   
   int opt;
   bool status;
-  while ((opt = getopt(usr_argc_, usr_argv_, "hvctaAb:s:d:r:w:m:")) != -1) {
+  while ((opt = getopt(usr_argc_, usr_argv_, "hqvctaAb:s:d:r:w:m:")) != -1) {
     switch (opt) {
 
       // Print help screen
       case 'h':
         print_help = true;
+        break;
+
+      // Print version of the test
+      case 'q':
+        print_version = true;
         break;
 
       // Print Cpu time
@@ -202,6 +208,12 @@ void RocmBandwidthTest::ParseArguments() {
   // Print help screen if user option has "-h"
   if (print_help) {
     PrintHelpScreen();
+    exit(0);
+  }
+  
+  // Print version of the test
+  if (print_version) {
+    PrintVersion();
     exit(0);
   }
   

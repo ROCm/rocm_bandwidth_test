@@ -323,8 +323,29 @@ class RocmBandwidthTest : public BaseTest {
   friend hsa_status_t AgentInfo(hsa_agent_t agent, void* data);
   friend hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data);
 
- protected:
-  
+  // Structure of Version used to identify an instance of RocmBandwidthTest
+  struct RocmBandwidthVersion {
+
+    // Tracks changes such as re-design
+    // re-factor, re-write, extend with
+    // new major functionality, etc
+    uint32_t major_id;
+
+    // Tracks changes that affect Apis
+    // being added, removed, modified
+    uint32_t minor_id;
+
+    // Tracks changes that affect Apis
+    // being added, removed, modified
+    uint32_t step_id;
+
+    // Used to pack space for structure alignment
+    uint32_t reserved;
+  };
+  RocmBandwidthVersion version_;
+  void PrintVersion() const;
+  std::string GetVersion() const;
+
   // More variables declared for testing
   // vector<transaction> tran_;
 
