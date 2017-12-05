@@ -1,0 +1,8 @@
+Package: rocm_bandwidth_test
+Architecture: $arch
+Maintainer: Advanced Micro Devices Inc.
+Depends:
+Priority: optional
+Version: $version
+Description: Test to measure PciE bandwidth on ROCm platform
+
