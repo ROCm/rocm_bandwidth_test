@@ -46,14 +46,14 @@ add_definitions(-DHSA_DEPRECATED=)
 
 # Enable debug trace
 if(DEFINED ENV{CMAKE_DEBUG_TRACE})
-  add_definitions (-DDEBUG_TRACE=1)
+  add_definitions(-DDEBUG_TRACE=1)
 endif()
-
 
 # Linux Compiler options
 set(CMAKE_CXX_FLAGS "-std=c++11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-dev")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
@@ -67,7 +67,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-threadsafe-statics")
 
 # CLANG options
 if("$ENV{CXX}" STREQUAL "/usr/bin/clang++")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ferror-limit=1000000")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ferror-limit=1000000")
 endif()
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-Bdynamic -Wl,-z,noexecstack")
@@ -122,6 +122,25 @@ if(NOT EXISTS ${ROCR_LIB_DIR}/${CORE_RUNTIME_LIBRARY}.so)
   RETURN()
 endif()
 
+# Add cmake_modules to default module path if it is not
+# already set and include utils from cmake modules
+if(NOT DEFINED CMAKE_MODULE_PATH)
+  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
+endif()
+include(utils)
+
+#
+# Set the package version for the test. It is critical that this
+# value track what is used in the test source. The code from utils
+# module will parse the string into major, minor and patch sub-fields
+#
+get_version("1.0.0")
+
+# Bind the Major, Minor and Patch values
+set(BUILD_VERSION_MAJOR ${VERSION_MAJOR})
+set(BUILD_VERSION_MINOR ${VERSION_MINOR})
+set(BUILD_VERSION_PATCH ${VERSION_PATCH})
+
 # Basic Tool Chain Information
 message(" ")
 message("----------------NBIT: ${NBIT}")
@@ -134,17 +153,43 @@ message("-----CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 message("---CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 message(" ")
 
+# Specify name of project to build, install and package
 set(PROJECT_NAME "rocm_bandwidth_test")
 set(TEST_NAME "${PROJECT_NAME}")
 project(${PROJECT_NAME})
 
+# Add directories to look for header files to compile
 INCLUDE_DIRECTORIES(${ROCR_INC_DIR})
 
+# Add directories to look for library files to link 
 LINK_DIRECTORIES(${ROCR_LIB_DIR})
 
 # Add sources that belong to the project
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
 
+# Build and link the test program
 add_executable(${TEST_NAME} ${Src})
 target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET} ${ROC_THUNK_NAME} c stdc++ dl pthread rt)
+
+# Add install directives for rocm_bandwidth_test
+install(TARGETS ${TEST_NAME} RUNTIME DESTINATION bin)
+
+# Add packaging directives for rocm_bandwidth_test
+set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_PACKAGE_VENDOR "AMD")
+set(CPACK_PACKAGE_VERSION_MAJOR ${BUILD_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${BUILD_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${BUILD_VERSION_PATCH})
+set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Test to measure PciE bandwidth on ROCm platforms")
+
+# Debian package specific variables
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
+
+# RPM package specific variables
+if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
+  set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+endif()
+
+include(CPack)
 
