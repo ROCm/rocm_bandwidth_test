@@ -118,7 +118,7 @@ if(NOT EXISTS ${ROCR_INC_DIR}/hsa/hsa.h)
 endif()
 
 if(NOT EXISTS ${ROCR_LIB_DIR}/${CORE_RUNTIME_LIBRARY}.so)
-  message("ERROR: ROC Runtime libraries can't be found under sprcified path")
+  message("ERROR: ROC Runtime libraries can't be found under specified path")
   RETURN()
 endif()
 
