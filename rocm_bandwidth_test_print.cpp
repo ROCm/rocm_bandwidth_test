@@ -201,7 +201,11 @@ void RocmBandwidthTest::PrintLinkMatrix() const {
     for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
       uint32_t link_weight = link_matrix_[(src_idx * agent_index_) + dst_idx];
       std::cout.width(format);
-      std::cout << link_weight;
+      if (link_weight == 0xFFFFFFFF) {
+        std::cout << "N/A";
+      } else {
+        std::cout << link_weight;
+      }
     }
     std::cout << std::endl;
     std::cout << std::endl;
