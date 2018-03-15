@@ -207,6 +207,7 @@ class RocmBandwidthTest : public BaseTest {
 
   // @brief: Populate link weight for the set of agents
   void DiscoverLinkWeight();
+  void BindLinkWeight(uint32_t idx1, uint32_t idx2);
 
   // @brief: Populates the access matrix
   void PopulateAccessMatrix();

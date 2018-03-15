@@ -270,6 +270,37 @@ void RocmBandwidthTest::DiscoverTopology() {
   DiscoverLinkWeight();
 }
 
+void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
+  
+  // Agent has no pools so no need to look for numa distance
+  if (agent_pool_list_[idx2].pool_list.size() == 0) {
+    return;
+  }
+  
+  uint32_t hops = 0;
+  hsa_agent_t agent1 = agent_list_[idx1].agent_;
+  hsa_amd_memory_pool_t& pool = agent_pool_list_[idx2].pool_list[0].pool_;
+  err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
+                   HSA_AMD_AGENT_MEMORY_POOL_INFO_NUM_LINK_HOPS, &hops);
+  if (hops < 1) {
+    link_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
+    return;
+  }
+
+  hsa_amd_memory_pool_link_info_t *link_info;
+  uint32_t link_info_sz = hops * sizeof(hsa_amd_memory_pool_link_info_t);
+  link_info = (hsa_amd_memory_pool_link_info_t *)malloc(link_info_sz);
+  memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
+  err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
+                 HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
+  link_matrix_[(idx1 *agent_index_) + idx2] = 0;
+  for(uint32_t hopIdx = 0; hopIdx < hops; hopIdx++) {
+    link_matrix_[(idx1 *agent_index_) + idx2] += (link_info[hopIdx]).numa_distance;
+
+  }
+  free(link_info); 
+}
+
 void RocmBandwidthTest::DiscoverLinkWeight() {
 
   // Allocate space if it is first time
@@ -278,28 +309,13 @@ void RocmBandwidthTest::DiscoverLinkWeight() {
   }
 
   agent_info_t agent_info;
-  hsa_agent_t agent1;
-  hsa_amd_memory_pool_link_info_t link_info = {0};
   for (uint32_t idx1 = 0; idx1 < agent_index_; idx1++) {
-    agent1 = agent_list_[idx1].agent_;
     for (uint32_t idx2 = 0; idx2 < agent_index_; idx2++) {
       if (idx1 == idx2) {
         link_matrix_[(idx1 *agent_index_) + idx2] = 0;
         continue;
       }
-      uint32_t hops = 0;
-      if (agent_pool_list_[idx2].pool_list.size() != 0) {
-        hsa_amd_memory_pool_t& pool = agent_pool_list_[idx2].pool_list[0].pool_;
-        err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
-                         HSA_AMD_AGENT_MEMORY_POOL_INFO_NUM_LINK_HOPS, &hops);
-        if (hops > 0) {
-          err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
-                         HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, &link_info);
-          link_matrix_[(idx1 *agent_index_) + idx2] = link_info.numa_distance;
-        } else {
-          link_matrix_[(idx1 *agent_index_) + idx2] = 0xFFFFFFFF;
-        }
-      }
+      BindLinkWeight(idx1, idx2);
     }
   }
 }
