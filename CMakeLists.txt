@@ -10,6 +10,11 @@ cmake_minimum_required(VERSION 2.8.0)
 #`
 #     export ROCR_LIB_DIR="Path to ROC Runtime libraries"
 #
+#     OR point CMAKE_PREFIX_PATH to the root directory containing hsa.h and libhsa-runtime??.so
+#        (for the default rocm installation, this is /opt/rocm
+#         export CMAKE_PREFIX_PATH=/opt/rocm:${CMAKE_PREFIX_PATH}
+#        )
+
 #  2) Make an new folder called build under root folder
 #
 #     mkdir build
@@ -112,18 +117,20 @@ set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
 set(CORE_RUNTIME_LIBRARY "lib${CORE_RUNTIME_TARGET}")
 
 # Determine Roc Runtime header files are accessible
-if(NOT EXISTS ${ROCR_INC_DIR}/hsa/hsa.h)
-  message("ERROR: ROC Runtime headers can't be found under specified path")
-  RETURN()
+find_file(HSA_HEADER NAME hsa.h PATHS ${ROCR_INC_DIR} /opt/rocm)
+find_file(HSA_HEADER NAME hsa.h)
+get_filename_component(HSA_HEADER_DIR ${HSA_HEADER} DIRECTORY)
+if(${HSA_HEADER_DIR} MATCHES include)
+  set(ROCR_INC_DIR ${HSA_HEADER_DIR})
+else()
+  get_filename_component(ROCR_INC_DIR "${HSA_HEADER_DIR}/.." DIRECTORY)
 endif()
 
-if(NOT EXISTS ${ROCR_LIB_DIR}/${CORE_RUNTIME_LIBRARY}.so)
-  message("ERROR: ROC Runtime libraries can't be found under specified path")
-  RETURN()
-endif()
+find_file(HSA_RUNTIME_LIB NAME ${CORE_RUNTIME_LIBRARY}.so PATHS ${ROCR_LIB_DIR} /opt/rocm/ /opt/rocm/lib)
+find_file(HSA_RUNTIME_LIB NAME ${CORE_RUNTIME_LIBRARY}.so)
+get_filename_component(ROCR_LIB_DIR ${HSA_RUNTIME_LIB} DIRECTORY)
 
-# Add cmake_modules to default module path if it is not
-# already set and include utils from cmake modules
+
 if(NOT DEFINED CMAKE_MODULE_PATH)
   set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 endif()
