@@ -233,6 +233,10 @@ class RocmBandwidthTest : public BaseTest {
   // build list of transactions
   void ParseArguments();
   
+  // @brief Validate user input of primary operations
+  void ValidateInputFlags(uint32_t pf_cnt,
+                          uint32_t copy_mask, uint32_t copy_ctrl_mask);
+  
   // @brief: Print the list of transactions
   void PrintTransList();
 
@@ -406,6 +410,14 @@ class RocmBandwidthTest : public BaseTest {
   uint32_t req_copy_unidir_;
   uint32_t req_copy_all_bidir_;
   uint32_t req_copy_all_unidir_;
+  
+  static const uint32_t USR_SRC_FLAG = 0x01;
+  static const uint32_t USR_DST_FLAG = 0x02;
+
+  static const uint32_t USR_BUFFER_SIZE = 0x01;
+  static const uint32_t USR_VISIBLE_TIME = 0x02;
+  static const uint32_t DEV_COPY_LATENCY = 0x04;
+  static const uint32_t VALIDATE_COPY_OP = 0x08;
 
   // List used to store transactions per user request
   vector<async_trans_t> trans_list_;
@@ -444,6 +456,9 @@ class RocmBandwidthTest : public BaseTest {
   // Determines if user has requested validation
   bool validate_;
 
+  // Determines the latency overhead of copy operations
+  bool latency_;
+
   // CPU agent used for validation
   int32_t cpu_index_;
   hsa_agent_t cpu_agent_;
@@ -451,8 +466,8 @@ class RocmBandwidthTest : public BaseTest {
   // System region
   hsa_amd_memory_pool_t sys_pool_;
  
-  // static const uint32_t SIZE_LIST[4];
   static const uint32_t SIZE_LIST[20];
+  static const uint32_t LATENCY_SIZE_LIST[20];
 
   // Exit value to return in case of error
   int32_t exit_value_;

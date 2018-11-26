@@ -206,78 +206,38 @@ void RocmBandwidthTest::PopulateAccessMatrix() {
   uint32_t size = pool_list_.size();
   for (uint32_t src_idx = 0; src_idx < size; src_idx++) {
 
-    // Determine if the pool belongs to Cpu and is coarse-grained
+    // Get handle of Src agent of the pool
     uint32_t src_dev_idx = pool_list_[src_idx].agent_index_;
-    hsa_device_type_t src_dev_type = agent_list_[src_dev_idx].device_type_;
-
-    /*
-    * This block of code makes sense only if both Fine and Coarse
-    * grained memory pools are captured. This does not make sense
-    * if only of them is captured
-    if (src_dev_type == HSA_DEVICE_TYPE_CPU) {
-      bool src_fine_grained =  pool_list_[src_idx].is_fine_grained_;
-      if (src_fine_grained == false) {
-        continue;
-      }
-    }
-    */
-
     hsa_agent_t src_agent = pool_list_[src_idx].owner_agent_;
     hsa_amd_memory_pool_t src_pool = pool_list_[src_idx].pool_;
+    hsa_device_type_t src_dev_type = agent_list_[src_dev_idx].device_type_;
 
     for (uint32_t dst_idx = 0; dst_idx < size; dst_idx++) {
 
-      // Determine if the pool belongs to Cpu and is coarse-grained
+      // Get handle of Dst pool
       uint32_t dst_dev_idx = pool_list_[dst_idx].agent_index_;
-      hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
-
-      /*
-       * This block of code makes sense only if both Fine and Coarse
-       * grained memory pools are captured. This does not make sense
-       * if only of them is captured
-      if (dst_dev_type == HSA_DEVICE_TYPE_CPU) {
-        bool dst_fine_grained =  pool_list_[dst_idx].is_fine_grained_;
-        if (dst_fine_grained == false) {
-          continue;
-        }
-      }
-      */
       hsa_agent_t dst_agent = pool_list_[dst_idx].owner_agent_;
       hsa_amd_memory_pool_t dst_pool = pool_list_[dst_idx].pool_;
+      hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
 
-      // Determine if accessibility to dst pool for src agent is not denied
-      hsa_amd_memory_pool_access_t access1;
+      // Determine if src agent has access to dst pool
+      hsa_amd_memory_pool_access_t access;
       status = hsa_amd_agent_memory_pool_get_info(src_agent, dst_pool,
-                             HSA_AMD_AGENT_MEMORY_POOL_INFO_ACCESS, &access1);
+                             HSA_AMD_AGENT_MEMORY_POOL_INFO_ACCESS, &access);
       ErrorCheck(status);
 
-      // Determine if accessibility to src pool for dst agent is not denied
-      hsa_amd_memory_pool_access_t access2;
-      status = hsa_amd_agent_memory_pool_get_info(dst_agent, src_pool,
-                             HSA_AMD_AGENT_MEMORY_POOL_INFO_ACCESS, &access2);
+      if ((src_dev_type == HSA_DEVICE_TYPE_CPU) &&
+          (dst_dev_type == HSA_DEVICE_TYPE_GPU) &&
+          (access == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED)) {
+        status = hsa_amd_agent_memory_pool_get_info(dst_agent, src_pool,
+                             HSA_AMD_AGENT_MEMORY_POOL_INFO_ACCESS, &access);
+        ErrorCheck(status);
+      }
 
       // Access between the two agents is Non-Existent
-      if ((access1 == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) &&
-          (access2 == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED)) {
-        access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = 0;
-      }
-
-      // Access between the two agents is Unidirectional
-      if ((access1 == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) ||
-          (access2 == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED)) {
-        if ((src_dev_type == HSA_DEVICE_TYPE_GPU) &&
-            (dst_dev_type == HSA_DEVICE_TYPE_GPU)) {
-          access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = 0;
-        } else {
-          access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = 1;
-        }
-      }
-
-      // Access between the two agents is Bidirectional
-      if ((access1 != HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) &&
-          (access2 != HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED)) {
-        access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = 2;
-      }
+      uint32_t path;
+      path = (access == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) ? 0 : 1;
+      access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = path;
     }
   }
 }
