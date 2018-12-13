@@ -3,12 +3,13 @@ cmake_minimum_required(VERSION 2.8.0)
 #
 #  Setup build environment
 #
-#  1) Setup env var ROCR_INC_DIR and ROCR_LIB_DIR to point to 
-#     ROC Runtime header and libraries seperately
+#  1) Setup cmake variable CMAKE_PREFIX_PATH to point to a root
+#     directory that has ROCr header and ROCr, ROCt libraries
 #     
-#     export ROCR_INC_DIR="Path to ROC Runtime headers"
-#`
-#     export ROCR_LIB_DIR="Path to ROC Runtime libraries"
+#     export CMAKE_PREFIX_PATH="Path to ROCr Header and ROCr, ROCt libraries"
+#     
+#       e.g. export CMAKE_PREFIX_PATH=/opt/rocm/
+#       e.g. export CMAKE_PREFIX_PATH=${HOME}/git/compute/out/ubuntu-16.04/16.04/
 #
 #  2) Make an new folder called build under root folder
 #
@@ -18,16 +19,18 @@ cmake_minimum_required(VERSION 2.8.0)
 #     and make it
 #
 #     cd build
-#     cmake -DROCR_INC_DIR=ROCR_INC_DIR -DROCR_LIB_DIR=$ROCR_LIB_DIR ..
+#     cmake  ..
 #     make
 #
-#     @note: Add -DCMAKE_BUILD_TYPE=Debug if you want to build Debug
+#     @note: Add -DCMAKE_BUILD_TYPE=Debug       # if you want to build Debug
+#     @note: Add -DCMAKE_PREFIX_PATH="Rocm Dir" # if you don't define Env var
+#
 #
 
 # Build is not supported on Windows plaform
 if(WIN32)
   message("Windows platfom is not supported")
-  RETURN()
+  return()
 endif()
 
 # Flag to enable / disable verbose output.
@@ -80,10 +83,6 @@ if(NOT DEFINED CMAKE_BUILD_TYPE OR "${CMAKE_BUILD_TYPE}" STREQUAL "")
   endif()
 endif()
 
-if(NOT DEFINED CMAKE_PREFIX_PATH AND DEFINED ENV{CMAKE_PREFIX_PATH})
-  set(CMAKE_PREFIX_PATH $ENV{CMAKE_PREFIX_PATH})
-endif()
-
 # Extend Compiler flags based on build type
 string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE)
 if("${CMAKE_BUILD_TYPE}" STREQUAL debug)
@@ -104,23 +103,60 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
 
+# Specify name of project to build, install and package
+set(PROJECT_NAME "rocm_bandwidth_test")
+set(TEST_NAME "${PROJECT_NAME}")
+project(${PROJECT_NAME})
+
 # Set project requirements
 set(ROC_THUNK_NAME "hsakmt")
 set(CORE_RUNTIME_NAME "hsa-runtime")
-set(ROC_THUNK_LIBRARY "lib${ROC_THUNK_NAME}")
 set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
-set(CORE_RUNTIME_LIBRARY "lib${CORE_RUNTIME_TARGET}")
 
-# Determine Roc Runtime header files are accessible
-if(NOT EXISTS ${ROCR_INC_DIR}/hsa/hsa.h)
-  message("ERROR: ROC Runtime headers can't be found under specified path")
-  RETURN()
+# Bind default root directory to look for ROCm artifacts
+# such as ROCr header and ROCr, ROCt libraries
+set(ROCM_ROOT /opt/rocm/ CACHE PATH "Root of ROCm")
+if(CMAKE_PREFIX_PATH)
+  set(ROCM_ROOT ${CMAKE_PREFIX_PATH} CACHE PATH "Root of ROCm")
 endif()
 
-if(NOT EXISTS ${ROCR_LIB_DIR}/${CORE_RUNTIME_LIBRARY}.so)
-  message("ERROR: ROC Runtime libraries can't be found under specified path")
-  RETURN()
+# Search for ROCr header file
+find_path(ROCR_HDR hsa/hsa.h PATHS ${ROCM_ROOT} PATH_SUFFIXES include )
+if (NOT ROCR_HDR)
+  message("Rocr Header hsa/hsa.h not found")
+  return()
 endif()
+
+# Add directories to look for header files to compile
+INCLUDE_DIRECTORIES(${ROCR_HDR})
+
+# Search for ROCr library file
+find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS ${ROCM_ROOT} PATH_SUFFIXES lib lib64)
+if (NOT ROCR_LIB)
+  message("Rocr Library ${CORE_RUNTIME_TARGET} not found")
+  return()
+endif()
+
+# Search for ROCr library file
+find_library(ROCT_LIB ${ROC_THUNK_NAME} PATHS ${ROCM_ROOT} PATH_SUFFIXES lib lib64)
+if (NOT ROCT_LIB)
+  message("Roct Library ${ROC_THUNK_NAME} not found")
+  return()
+endif()
+
+# Add ROCr library to be used in linking target
+add_library(${CORE_RUNTIME_TARGET} SHARED IMPORTED GLOBAL)
+set_target_properties(${CORE_RUNTIME_TARGET} PROPERTIES
+                      IMPORTED_LOCATION "${ROCR_LIB}"
+                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}"
+                      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${ROCR_HDR}")
+
+# Add ROCr library to be used in linking target
+add_library(${ROC_THUNK_NAME} SHARED IMPORTED GLOBAL)
+set_target_properties(${ROC_THUNK_NAME} PROPERTIES
+                      IMPORTED_LOCATION "${ROCT_LIB}"
+                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}"
+                      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${ROCR_HDR}")
 
 # Add cmake_modules to default module path if it is not
 # already set and include utils from cmake modules
@@ -147,29 +183,18 @@ message("----------------NBIT: ${NBIT}")
 message("-----------BuildType: ${CMAKE_BUILD_TYPE}")
 message("------------Compiler: ${CMAKE_CXX_COMPILER}")
 message("----Compiler-Version: ${CMAKE_CXX_COMPILER_VERSION}")
-message("-----HSA-Runtime-Inc: ${ROCR_INC_DIR}")
-message("-----HSA-Runtime-Lib: ${ROCR_LIB_DIR}")
 message("-----CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 message("---CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 message(" ")
-
-# Specify name of project to build, install and package
-set(PROJECT_NAME "rocm_bandwidth_test")
-set(TEST_NAME "${PROJECT_NAME}")
-project(${PROJECT_NAME})
-
-# Add directories to look for header files to compile
-INCLUDE_DIRECTORIES(${ROCR_INC_DIR})
-
-# Add directories to look for library files to link 
-LINK_DIRECTORIES(${ROCR_LIB_DIR})
 
 # Add sources that belong to the project
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
 
 # Build and link the test program
 add_executable(${TEST_NAME} ${Src})
-target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET} ${ROC_THUNK_NAME} c stdc++ dl pthread rt)
+target_link_libraries(${TEST_NAME} ${ROC_THUNK_NAME})
+target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET})
+target_link_libraries(${TEST_NAME} c stdc++ dl pthread rt)
 
 # Add install directives for rocm_bandwidth_test
 install(TARGETS ${TEST_NAME} RUNTIME DESTINATION bin)
