@@ -116,6 +116,9 @@ set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
 # Bind default root directory to look for ROCm artifacts
 # such as ROCr header and ROCr, ROCt libraries
 set(ROCM_ROOT /opt/rocm/ CACHE PATH "Root of ROCm")
+if(DEFINED ENV{CMAKE_PREFIX_PATH})
+  set(CMAKE_PREFIX_PATH $ENV{CMAKE_PREFIX_PATH})
+endif()
 if(CMAKE_PREFIX_PATH)
   set(ROCM_ROOT ${CMAKE_PREFIX_PATH} CACHE PATH "Root of ROCm")
 endif()
@@ -148,15 +151,12 @@ endif()
 add_library(${CORE_RUNTIME_TARGET} SHARED IMPORTED GLOBAL)
 set_target_properties(${CORE_RUNTIME_TARGET} PROPERTIES
                       IMPORTED_LOCATION "${ROCR_LIB}"
-                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}"
-                      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${ROCR_HDR}")
+                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}")
 
 # Add ROCr library to be used in linking target
 add_library(${ROC_THUNK_NAME} SHARED IMPORTED GLOBAL)
 set_target_properties(${ROC_THUNK_NAME} PROPERTIES
-                      IMPORTED_LOCATION "${ROCT_LIB}"
-                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}"
-                      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${ROCR_HDR}")
+                      IMPORTED_LOCATION "${ROCT_LIB}")
 
 # Add cmake_modules to default module path if it is not
 # already set and include utils from cmake modules
