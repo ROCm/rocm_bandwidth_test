@@ -99,10 +99,15 @@ void RocmBandwidthTest::PrintTopology() {
     std::cout << "";
     std::cout.width(format);
     
-    if (HSA_DEVICE_TYPE_CPU == node.agent.device_type_)
+    if (HSA_DEVICE_TYPE_CPU == node.agent.device_type_) {
       std::cout << "  Device Type:                            CPU" << std::endl;
-    else if (HSA_DEVICE_TYPE_GPU == node.agent.device_type_)
+    } else if (HSA_DEVICE_TYPE_GPU == node.agent.device_type_) {
       std::cout << "  Device Type:                            GPU" << std::endl;
+      std::cout.width(format);
+      std::cout << "";
+      std::cout.width(format);
+      std::cout << "  Device  BDF:                            " << node.agent.bdf_id_ << std::endl;
+    }
 
     // Print pool info
     size_t pool_count = node.pool_list.size();
@@ -222,10 +227,12 @@ void RocmBandwidthTest::PrintAgentsList() {
     agent_pool_info_t node = agent_pool_list_.at(idx);
     std::cout << "Device Index:                             "
               << node.agent.index_ << std::endl;
-    if (HSA_DEVICE_TYPE_CPU == node.agent.device_type_)
+    if (HSA_DEVICE_TYPE_CPU == node.agent.device_type_) {
       std::cout << "  Device Type:                            CPU" << std::endl;
-    else if (HSA_DEVICE_TYPE_GPU == node.agent.device_type_)
+    } else if (HSA_DEVICE_TYPE_GPU == node.agent.device_type_) {
       std::cout << "  Device Type:                            GPU" << std::endl;
+      std::cout << "  Device  BDF:                            " << node.agent.bdf_id_ << std::endl;
+    }
   }
   std::cout << std::endl;
 }

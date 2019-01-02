@@ -237,19 +237,19 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
   std::cout.width(format);
   
   if ((peak) && (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
-    std::cout << "Unidirectional peak bandwidth GB/s";
+    std::cout << "Unidirectional copy peak bandwidth GB/s";
   }
   
   if ((peak == false) && (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
-    std::cout << "Unidirectional average bandwidth GB/s";
+    std::cout << "Unidirectional copy average bandwidth GB/s";
   }
   
   if ((peak) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-    std::cout << "Bdirectional peak bandwidth GB/s";
+    std::cout << "Bdirectional copy peak bandwidth GB/s";
   }
   
   if ((peak == false) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-    std::cout << "Bidirectional average bandwidth GB/s";
+    std::cout << "Bidirectional copy average bandwidth GB/s";
   }
 
   std::cout << std::endl;
@@ -372,7 +372,12 @@ void RocmBandwidthTest::DisplayDevInfo() const {
       std::cout.width(format);
       std::cout << "";
       std::cout << "Device: " << idx;
-      std::cout << ",  " << agent_list_[idx].name_ << std::endl;
+      std::cout << ",  " << agent_list_[idx].name_;
+      bool gpuDevice = (agent_list_[idx].device_type_ == HSA_DEVICE_TYPE_GPU);
+      if (gpuDevice) {
+        std::cout << ",  " << agent_list_[idx].bdf_id_;
+      }
+      std::cout << std::endl;
     }
   }
   std::cout << std::endl;

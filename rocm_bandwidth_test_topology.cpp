@@ -43,6 +43,10 @@
 #include "common.hpp"
 #include "rocm_bandwidth_test.hpp"
 
+#include <iomanip>
+#include <sstream>
+#include <string>
+
 // @brief: Helper method to iterate throught the memory pools of
 // an agent and discover its properties
 hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data) {
@@ -133,6 +137,17 @@ hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data) {
   return HSA_STATUS_SUCCESS;
 }
 
+void PopulateBDF(uint32_t bdf_id, agent_info_t *agent_info) {
+
+  uint8_t func_id = (bdf_id & 0x00000003);
+  uint8_t dev_id = ((bdf_id & 0x000000F8) >> 3);
+  uint8_t bus_id = ((bdf_id & 0x0000FF00) >> 8);
+  std::stringstream stream;
+  stream << std::setfill('0') << std::setw(sizeof(uint8_t) * 2);
+  stream << std::hex << +bus_id << ":" << +dev_id << "." << +func_id;
+  strcpy(agent_info->bdf_id_, (stream.str()).c_str());
+}
+
 // @brief: Helper method to iterate throught the agents of
 // a system and discover its properties
 hsa_status_t AgentInfo(hsa_agent_t agent, void* data) {
@@ -157,11 +172,18 @@ hsa_status_t AgentInfo(hsa_agent_t agent, void* data) {
   }
 
   // Instantiate an instance of agent_info_t and populate its name
-  // field before adding it to the list of agent_info_t objects
+  // and BDF fields before adding it to the list of agent_info_t objects
   agent_info_t agent_info(agent, asyncDrvr->agent_index_, device_type);
   status = hsa_agent_get_info(agent,
                       (hsa_agent_info_t)HSA_AMD_AGENT_INFO_PRODUCT_NAME,
                       (void *)&agent_info.name_[0]);
+  if (device_type == HSA_DEVICE_TYPE_GPU) {
+    uint32_t bdf_id = 0;
+    status = hsa_agent_get_info(agent,
+                      (hsa_agent_info_t)HSA_AMD_AGENT_INFO_BDFID,
+                      (void *)&bdf_id);
+    PopulateBDF(bdf_id, &agent_info);
+  }
   asyncDrvr->agent_list_.push_back(agent_info);
 
   // Contruct an new agent_pool_info structure and add it to the list
