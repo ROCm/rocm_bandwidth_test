@@ -47,6 +47,7 @@
 #include "base_test.hpp"
 #include "hsatimer.hpp"
 #include "common.hpp"
+
 #include <vector>
 
 using namespace std;
@@ -66,7 +67,8 @@ typedef struct agent_info {
   uint32_t index_;
   hsa_agent_t agent_;
   hsa_device_type_t device_type_;
-  char name_[64];   // Size specified in public header file
+  char name_[64];     // Size specified in public header file
+  char bdf_id_[16];   // Bus (8-bits), Device (5-bits), Function (3-bits)
 
 } agent_info_t;
 
@@ -323,6 +325,9 @@ class RocmBandwidthTest : public BaseTest {
   // relevant data structures used to maintain system topology
   friend hsa_status_t AgentInfo(hsa_agent_t agent, void* data);
   friend hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data);
+  
+  // Populate the Bus Device Function of Gpu device
+  friend void PopulateBDF(uint32_t bdf_id, agent_info_t *agent_info);
 
   // Structure of Version used to identify an instance of RocmBandwidthTest
   struct RocmBandwidthVersion {
