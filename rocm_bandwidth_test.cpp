@@ -235,6 +235,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   hsa_signal_t signal_fwd;
   hsa_signal_t signal_rev;
   hsa_signal_t validation_signal;
+  hsa_signal_t signal_start_bidir;
   uint32_t src_idx = trans.copy.src_idx_;
   uint32_t dst_idx = trans.copy.dst_idx_;
   uint32_t src_dev_idx_fwd = pool_list_[src_idx].agent_index_;
@@ -267,6 +268,11 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
                         buf_dst_rev, dst_pool_rev,
                         src_agent_rev, dst_agent_rev,
                         signal_rev);
+
+    // Create a signal to begin bidir copy operations
+    // @TODO: replace it with a signal pool call
+    err_ = hsa_signal_create(1, 0, NULL, &signal_start_bidir);
+    ErrorCheck(err_);
   }
 
   if (validate_) {
@@ -309,6 +315,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       hsa_signal_store_relaxed(signal_fwd, 1);
       if (bidir) {
         hsa_signal_store_relaxed(signal_rev, 1);
+        hsa_signal_store_relaxed(signal_start_bidir, 1);
       }
 
       if (validate_) { 
@@ -324,17 +331,30 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
 
       // Start the timer and launch forward copy operation
       timer.StartTimer(index);
-      err_ = hsa_amd_memory_async_copy(buf_dst_fwd, dst_agent_fwd,
-                                       buf_src_fwd, src_agent_fwd,
-                                       curr_size, 0, NULL, signal_fwd);
+      if (bidir == false) {
+        err_ = hsa_amd_memory_async_copy(buf_dst_fwd, dst_agent_fwd,
+                                         buf_src_fwd, src_agent_fwd,
+                                         curr_size, 0, NULL, signal_fwd);
+      } else {
+        err_ = hsa_amd_memory_async_copy(buf_dst_fwd, dst_agent_fwd,
+                                         buf_src_fwd, src_agent_fwd,
+                                         curr_size, 1, &signal_start_bidir,
+                                         signal_fwd);
+      }
       ErrorCheck(err_);
 
       // Launch reverse copy operation if it is bidirectional
       if (bidir) {
         err_ = hsa_amd_memory_async_copy(buf_dst_rev, dst_agent_rev,
                                          buf_src_rev, src_agent_rev,
-                                         curr_size, 0, NULL, signal_rev);
+                                         curr_size, 1, &signal_start_bidir,
+                                         signal_rev);
         ErrorCheck(err_);
+      }
+      
+      // Signal the bidir copies to begin
+      if (bidir) {
+        hsa_signal_store_relaxed(signal_start_bidir, 0);
       }
 
       if (bw_blocking_run_ == NULL) {
