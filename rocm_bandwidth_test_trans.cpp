@@ -125,47 +125,21 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
   uint32_t src_size = src_list.size();
   uint32_t dst_size = dst_list.size();
 
-  // hsa_status_t status;
-  // hsa_amd_memory_pool_access_t access;
   for (uint32_t idx = 0; idx < src_size; idx++) {
 
     // Retrieve Roc runtime handles for Src memory pool and agents
     uint32_t src_idx = src_list[idx];
     uint32_t src_dev_idx = pool_list_[src_idx].agent_index_;
-    // hsa_agent_t src_agent = pool_list_[src_idx].owner_agent_;
     hsa_amd_memory_pool_t src_pool = pool_list_[src_idx].pool_;
-    // bool src_fine_grained =  pool_list_[src_idx].is_fine_grained_;
     hsa_device_type_t src_dev_type = agent_list_[src_dev_idx].device_type_;
-
-    /*
-     * This block of code makes sense only if both Fine and Coarse
-     * grained memory pools are captured. This does not make sense
-     * if only of them is captured
-    filter_out = FilterCpuPool(req_type, src_dev_type, src_fine_grained);
-    if (filter_out) {
-      continue;
-    }
-    */
 
     for (uint32_t jdx = 0; jdx < dst_size; jdx++) {
 
       // Retrieve Roc runtime handles for Dst memory pool and agents
       uint32_t dst_idx = dst_list[jdx];
       uint32_t dst_dev_idx = pool_list_[dst_idx].agent_index_;
-      // hsa_agent_t dst_agent = pool_list_[dst_idx].owner_agent_;
       hsa_amd_memory_pool_t dst_pool = pool_list_[dst_idx].pool_;
-      // bool dst_fine_grained =  pool_list_[dst_idx].is_fine_grained_;
       hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
-
-    /*
-     * This block of code makes sense only if both Fine and Coarse
-     * grained memory pools are captured. This does not make sense
-     * if only of them is captured
-      filter_out = FilterCpuPool(req_type, dst_dev_type, dst_fine_grained);
-      if (filter_out) {
-        continue;
-      }
-      */
 
       // Filter out transactions that involve only Cpu agents/devices
       // without regard to type of request, default run, partial or full
@@ -185,7 +159,7 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
         }
       }
 
-      // Determine if accessibility to src pool for dst agent is not denied
+      // Determine if accessibility to dst pool for src agent is not denied
       uint32_t path_exists = access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx];
       if (path_exists == 0) {
         if ((req_type == REQ_COPY_ALL_BIDIR) ||
@@ -325,6 +299,7 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
     }
 
     // Copy operation does not involve a Gpu device
+    // Divide bandwidth with 10^9 to get size in GigaBytes (10^9)
     if (trans.copy.uses_gpu_ != true) {
       avg_time = trans.cpu_avg_time_[idx];
       min_time = trans.cpu_min_time_[idx];

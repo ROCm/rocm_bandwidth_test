@@ -48,11 +48,13 @@
 #include <algorithm>
 
 static void printRecord(uint32_t size, double avg_time,
-                        double bandwidth, double min_time,
+                        double avg_bandwidth, double min_time,
                         double peak_bandwidth) {
 
   std::stringstream size_str;
-  if (size < 1024 * 1024) {
+  if (size < 1024) {
+    size_str << size << " Bytes";
+  } else if (size < 1024 * 1024) {
     size_str << size / 1024 << " KB";
   } else {
     size_str << size / (1024 * 1024) << " MB";
@@ -66,7 +68,7 @@ static void printRecord(uint32_t size, double avg_time,
   std::cout.width(format);
   std::cout << (avg_time * 1e6);
   std::cout.width(format);
-  std::cout << bandwidth;
+  std::cout << avg_bandwidth;
   std::cout.width(format);
   std::cout << (min_time * 1e6);
   std::cout.width(format);
@@ -173,6 +175,11 @@ void RocmBandwidthTest::Display() const {
     }
     DisplayCopyTimeMatrix(true);
     return;
+  }
+
+  if ((req_copy_bidir_ == REQ_COPY_BIDIR) ||
+      (req_copy_unidir_ == REQ_COPY_UNIDIR)) {
+      PrintVersion();
   }
 
   for (uint32_t idx = 0; idx < trans_size; idx++) {

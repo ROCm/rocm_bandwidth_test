@@ -60,7 +60,17 @@ const uint32_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
                                  4 * 1024 * 1024, 8 * 1024 * 1024,
                                  16 * 1024 * 1024, 32 * 1024 * 1024,
                                  64 * 1024 * 1024, 128 * 1024 * 1024,
-                                 256 * 1024 * 1024, 512 * 1024 * 1024 };
+                                 256 * 1024 * 1024, 512 * 1024  * 1024};
+
+const uint32_t RocmBandwidthTest::LATENCY_SIZE_LIST[] = { 1,
+                                 2, 4, 8,
+                                 16, 32, 64,
+                                 128, 256, 512,
+                                 1 * 1024, 2 * 1024,
+                                 4 * 1024, 8 * 1024,
+                                 16 * 1024, 32 * 1024,
+                                 64 * 1024, 128 * 1024,
+                                 256 * 1024, 512 * 1024 };
 
 uint32_t RocmBandwidthTest::GetIterationNum() {
   return (validate_) ? 1 : (num_iteration_ * 1.2 + 1);
@@ -76,24 +86,15 @@ void RocmBandwidthTest::AcquirePoolAcceses(uint32_t src_dev_idx,
                                    uint32_t dst_dev_idx,
                                    hsa_agent_t dst_agent, void* dst) {
 
-  if (access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] == 2) {
-    AcquireAccess(src_agent, dst);
-    AcquireAccess(dst_agent, src);
-    return;
-  }
-
   // determine which one is a cpu and call acquire on the other agent
   hsa_device_type_t src_dev_type = agent_list_[src_dev_idx].device_type_;
-  hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
-  if (src_dev_type == HSA_DEVICE_TYPE_CPU) {
-    AcquireAccess(dst_agent, src);
-    return;
-  }
-  if (dst_dev_type == HSA_DEVICE_TYPE_CPU) {
+  if (src_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(src_agent, dst);
-    return;
+  } else {
+    AcquireAccess(dst_agent, src);
   }
-  assert(false && "Inconsistent state");
+  
+  return;
 }
 
 void RocmBandwidthTest::AllocateHostBuffers(uint32_t size,
@@ -541,11 +542,12 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   access_matrix_ = NULL;
   active_agents_list_ = NULL;
   
+  latency_ = false;
   validate_ = false;
   print_cpu_time_ = false;
 
   // Initialize version of the test
-  version_.major_id = 1;
+  version_.major_id = 2;
   version_.minor_id = 0;
   version_.step_id = 0;
   version_.reserved = 0;
