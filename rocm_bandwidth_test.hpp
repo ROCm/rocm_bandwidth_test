@@ -439,6 +439,9 @@ class RocmBandwidthTest : public BaseTest {
   
   // Env key to determine if the run is a default one
   char* bw_default_run_;
+  
+  // Env key to specify iteration count
+  char* bw_iter_cnt_;
 
   // Variable to store argument number
 

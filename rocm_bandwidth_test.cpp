@@ -552,9 +552,18 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   version_.step_id = 0;
   version_.reserved = 0;
 
+  bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
   bw_blocking_run_ = getenv("ROCR_BW_RUN_BLOCKING");
   skip_fine_grain_ = getenv("ROCM_SKIP_FINE_GRAINED_POOL");
+
+  if (bw_iter_cnt_ != NULL) {
+    int32_t num = atoi(bw_iter_cnt_);
+    if (num < 0) {
+      std::cout << "Value of ROCM_BW_ITER_CNT can't be negative: " << num << std::endl;
+    }
+    set_num_iteration(num);
+  }
 
   exit_value_ = 0;
 }
