@@ -49,7 +49,7 @@
 
 // Parse option value string. The string has one more decimal
 // values separated by comma - "3,6,9,12,15".
-static bool ParseOptionValue(char* value, vector<uint32_t>&value_list) {
+static bool ParseOptionValue(char* value, vector<size_t>&value_list) {
  
   // Capture the option value string
   std::stringstream stream;
@@ -60,6 +60,9 @@ static bool ParseOptionValue(char* value, vector<uint32_t>&value_list) {
     
     // Read the option value
     stream >> token;
+    if (stream.fail()) {
+      exit(-1);
+    }
 
     // Update output list with values
     value_list.push_back(token);

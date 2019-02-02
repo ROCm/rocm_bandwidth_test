@@ -47,7 +47,7 @@
 #include <sstream>
 #include <algorithm>
 
-static void printRecord(uint32_t size, double avg_time,
+static void printRecord(size_t size, double avg_time,
                         double avg_bandwidth, double min_time,
                         double peak_bandwidth) {
 

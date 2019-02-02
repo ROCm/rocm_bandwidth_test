@@ -44,7 +44,7 @@
 #include "rocm_bandwidth_test.hpp"
 
 bool RocmBandwidthTest::BuildReadOrWriteTrans(uint32_t req_type,
-                                      vector<uint32_t>& in_list) {
+                                      vector<size_t>& in_list) {
 
   // Validate the list of pool-agent tuples
   hsa_status_t status;
@@ -118,8 +118,8 @@ bool RocmBandwidthTest::FilterCpuPool(uint32_t req_type,
 }
 
 bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
-                               vector<uint32_t>& src_list,
-                               vector<uint32_t>& dst_list) {
+                               vector<size_t>& src_list,
+                               vector<size_t>& dst_list) {
 
   // bool filter_out;
   uint32_t src_size = src_list.size();
@@ -281,7 +281,7 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
 
   double avg_time = 0;
   double min_time = 0;
-  uint32_t data_size = 0;
+  size_t data_size = 0;
   double avg_bandwidth = 0;
   double peak_bandwidth = 0;
   uint32_t size_len = size_list_.size();

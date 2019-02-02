@@ -52,25 +52,25 @@
 #include <limits>
 
 // The values are in megabytes at allocation time
-const uint32_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
-                                 2 * 1024, 4 * 1024, 8 * 1024,
-                                 16 * 1024, 32 * 1024, 64 * 1024,
-                                 128 * 1024, 256 * 1024, 512 * 1024,
-                                 1 * 1024 * 1024, 2 * 1024 * 1024,
-                                 4 * 1024 * 1024, 8 * 1024 * 1024,
-                                 16 * 1024 * 1024, 32 * 1024 * 1024,
-                                 64 * 1024 * 1024, 128 * 1024 * 1024,
-                                 256 * 1024 * 1024, 512 * 1024  * 1024};
+const size_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
+                                2 * 1024, 4 * 1024, 8 * 1024,
+                                16 * 1024, 32 * 1024, 64 * 1024,
+                                128 * 1024, 256 * 1024, 512 * 1024,
+                                1 * 1024 * 1024, 2 * 1024 * 1024,
+                                4 * 1024 * 1024, 8 * 1024 * 1024,
+                                16 * 1024 * 1024, 32 * 1024 * 1024,
+                                64 * 1024 * 1024, 128 * 1024 * 1024,
+                                256 * 1024 * 1024, 512 * 1024  * 1024};
 
-const uint32_t RocmBandwidthTest::LATENCY_SIZE_LIST[] = { 1,
-                                 2, 4, 8,
-                                 16, 32, 64,
-                                 128, 256, 512,
-                                 1 * 1024, 2 * 1024,
-                                 4 * 1024, 8 * 1024,
-                                 16 * 1024, 32 * 1024,
-                                 64 * 1024, 128 * 1024,
-                                 256 * 1024, 512 * 1024 };
+const size_t RocmBandwidthTest::LATENCY_SIZE_LIST[] = { 1,
+                                2, 4, 8,
+                                16, 32, 64,
+                                128, 256, 512,
+                                1 * 1024, 2 * 1024,
+                                4 * 1024, 8 * 1024,
+                                16 * 1024, 32 * 1024,
+                                64 * 1024, 128 * 1024,
+                                256 * 1024, 512 * 1024 };
 
 uint32_t RocmBandwidthTest::GetIterationNum() {
   return (validate_) ? 1 : (num_iteration_ * 1.2 + 1);
@@ -97,7 +97,7 @@ void RocmBandwidthTest::AcquirePoolAcceses(uint32_t src_dev_idx,
   return;
 }
 
-void RocmBandwidthTest::AllocateHostBuffers(uint32_t size,
+void RocmBandwidthTest::AllocateHostBuffers(size_t size,
                                     uint32_t src_dev_idx,
                                     uint32_t dst_dev_idx,
                                     void*& src, void*& dst,
@@ -132,7 +132,7 @@ void RocmBandwidthTest::AllocateHostBuffers(uint32_t size,
   return;
 }
 
-void RocmBandwidthTest::AllocateCopyBuffers(uint32_t size,
+void RocmBandwidthTest::AllocateCopyBuffers(size_t size,
                         uint32_t src_dev_idx, uint32_t dst_dev_idx,
                         void*& src, hsa_amd_memory_pool_t src_pool,
                         void*& dst, hsa_amd_memory_pool_t dst_pool,
@@ -222,8 +222,8 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   bool bidir = trans.copy.bidir_;
 
   // Initialize size of buffer to equal the largest element of allocation
+  size_t max_size = size_list_.back();
   uint32_t size_len = size_list_.size();
-  uint32_t max_size = size_list_.back();
 
   // Bind to resources such as pool and agents that are involved
   // in both forward and reverse copy operations
@@ -299,7 +299,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   for (uint32_t idx = 0; idx < size_len; idx++) {
     
     // This should not be happening
-    uint32_t curr_size = size_list_[idx];
+    size_t curr_size = size_list_[idx];
     if (curr_size > max_size) {
       break;
     }
