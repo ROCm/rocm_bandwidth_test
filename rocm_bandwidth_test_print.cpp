@@ -169,12 +169,6 @@ void RocmBandwidthTest::PrintAccessMatrix() const {
     for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
       uint32_t path_exists = access_matrix_[(src_idx * agent_index_) + dst_idx];
       std::cout.width(format);
-      /* Remove this block - as it is not always correct
-       * i.e. access path can be asymmetric
-      if (path_exists == 2) {
-        path_exists = 1;
-      }
-      */
       std::cout << path_exists;
     }
     std::cout << std::endl;
