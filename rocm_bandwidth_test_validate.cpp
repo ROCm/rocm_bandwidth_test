@@ -49,7 +49,7 @@
 #include <cctype>
 #include <sstream>
 
-bool RocmBandwidthTest::PoolIsPresent(vector<uint32_t>& in_list) {
+bool RocmBandwidthTest::PoolIsPresent(vector<size_t>& in_list) {
   
   bool is_present;
   uint32_t idx1 = 0;
@@ -72,7 +72,7 @@ bool RocmBandwidthTest::PoolIsPresent(vector<uint32_t>& in_list) {
   return true;
 }
 
-bool RocmBandwidthTest::PoolIsDuplicated(vector<uint32_t>& in_list) {
+bool RocmBandwidthTest::PoolIsDuplicated(vector<size_t>& in_list) {
   
   uint32_t idx1 = 0;
   uint32_t idx2 = 0;
@@ -87,7 +87,7 @@ bool RocmBandwidthTest::PoolIsDuplicated(vector<uint32_t>& in_list) {
   return true;
 }
 
-bool RocmBandwidthTest::ValidateReadOrWriteReq(vector<uint32_t>& in_list) {
+bool RocmBandwidthTest::ValidateReadOrWriteReq(vector<size_t>& in_list) {
 
   // Determine read / write request is even
   // Request is specified as a list of memory
@@ -120,7 +120,7 @@ bool RocmBandwidthTest::ValidateWriteReq() {
   return ValidateReadOrWriteReq(write_list_);
 }
 
-bool RocmBandwidthTest::ValidateCopyReq(vector<uint32_t>& in_list) {
+bool RocmBandwidthTest::ValidateCopyReq(vector<size_t>& in_list) {
   
   // Determine pool list length is valid
   uint32_t count = in_list.size();

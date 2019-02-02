@@ -268,16 +268,16 @@ class RocmBandwidthTest : public BaseTest {
   bool ValidateArguments();
   bool ValidateReadReq();
   bool ValidateWriteReq();
-  bool ValidateReadOrWriteReq(vector<uint32_t>& in_list);
+  bool ValidateReadOrWriteReq(vector<size_t>& in_list);
   
   bool ValidateBidirCopyReq();
   bool ValidateUnidirCopyReq();
-  bool ValidateCopyReq(vector<uint32_t>& in_list);
+  bool ValidateCopyReq(vector<size_t>& in_list);
   void PrintIOAccessError(uint32_t agent_idx, uint32_t pool_idx);
   void PrintCopyAccessError(uint32_t src_pool_idx, uint32_t dst_pool_idx);
   
-  bool PoolIsPresent(vector<uint32_t>& in_list);
-  bool PoolIsDuplicated(vector<uint32_t>& in_list);
+  bool PoolIsPresent(vector<size_t>& in_list);
+  bool PoolIsDuplicated(vector<size_t>& in_list);
 
   // @brief: Builds a list of transaction per user request
   void ComputeCopyTime(async_trans_t& trans);
@@ -289,12 +289,12 @@ class RocmBandwidthTest : public BaseTest {
   bool BuildAllPoolsBidirCopyTrans();
   bool BuildAllPoolsUnidirCopyTrans();
   bool BuildReadOrWriteTrans(uint32_t req_type,
-                             vector<uint32_t>& in_list);
+                             vector<size_t>& in_list);
   bool BuildCopyTrans(uint32_t req_type,
-                      vector<uint32_t>& src_list,
-                      vector<uint32_t>& dst_list);
+                      vector<size_t>& src_list,
+                      vector<size_t>& dst_list);
 
-  void AllocateCopyBuffers(uint32_t size,
+  void AllocateCopyBuffers(size_t size,
                            uint32_t src_dev_idx, uint32_t dst_dev_idx,
                            void*& src, hsa_amd_memory_pool_t src_pool,
                            void*& dst, hsa_amd_memory_pool_t dst_pool,
@@ -305,7 +305,7 @@ class RocmBandwidthTest : public BaseTest {
                       void* dst_fwd, void* dst_rev,
                       hsa_signal_t signal_fwd, hsa_signal_t signal_rev);
   double GetGpuCopyTime(bool bidir, hsa_signal_t signal_fwd, hsa_signal_t signal_rev);
-  void AllocateHostBuffers(uint32_t size,
+  void AllocateHostBuffers(size_t size,
                            uint32_t src_dev_idx,
                            uint32_t dst_dev_idx,
                            void*& src, void*& dst,
@@ -352,6 +352,7 @@ class RocmBandwidthTest : public BaseTest {
     // Used to pack space for structure alignment
     uint32_t reserved;
   };
+
   RocmBandwidthVersion version_;
   void PrintVersion() const;
   std::string GetVersion() const;
@@ -377,31 +378,31 @@ class RocmBandwidthTest : public BaseTest {
   // List of agents involved in a bidrectional copy operation
   // Size of the list cannot exceed the number of agents
   // reported by the system
-  vector<uint32_t> bidir_list_;
+  vector<size_t> bidir_list_;
 
   // List of source agents in a unidrectional copy operation
   // Size of the list cannot exceed the number of agents
   // reported by the system
-  vector<uint32_t> src_list_;
+  vector<size_t> src_list_;
 
   // List of destination agents in a unidrectional copy operation
   // Size of the list cannot exceed the number of agents
   // reported by the system
-  vector<uint32_t> dst_list_;
+  vector<size_t> dst_list_;
 
   // List of agents involved in read operation. Has
   // two agents, the first agent hosts the memory pool
   // while the second agent executes the read operation
-  vector<uint32_t> read_list_;
+  vector<size_t> read_list_;
   
   // List of agents involved in write operation. Has
   // two agents, the first agent hosts the memory pool
   // while the second agent executes the write operation
-  vector<uint32_t> write_list_;
+  vector<size_t> write_list_;
   
   // List of sizes to use in copy and read/write transactions
   // Size is specified in terms of Megabytes
-  vector<uint32_t> size_list_;
+  vector<size_t> size_list_;
 
   // Type of service requested by user
   uint32_t req_read_;
@@ -469,8 +470,8 @@ class RocmBandwidthTest : public BaseTest {
   // System region
   hsa_amd_memory_pool_t sys_pool_;
  
-  static const uint32_t SIZE_LIST[20];
-  static const uint32_t LATENCY_SIZE_LIST[20];
+  static const size_t SIZE_LIST[20];
+  static const size_t LATENCY_SIZE_LIST[20];
 
   // Exit value to return in case of error
   int32_t exit_value_;
