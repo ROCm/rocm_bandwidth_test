@@ -341,7 +341,7 @@ void RocmBandwidthTest::ParseArguments() {
   // Initialize the list of buffer sizes to use in copy/read/write operations
   // For All Copy operations use only one buffer size
   if (size_list_.size() == 0) {
-    uint32_t size_len = sizeof(SIZE_LIST)/sizeof(uint32_t);
+    uint32_t size_len = sizeof(SIZE_LIST)/sizeof(size_t);
     for (uint32_t idx = 0; idx < size_len; idx++) {
 
       if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
