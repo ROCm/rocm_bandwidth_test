@@ -88,9 +88,10 @@ void RocmBandwidthTest::AcquirePoolAcceses(uint32_t src_dev_idx,
 
   // determine which one is a cpu and call acquire on the other agent
   hsa_device_type_t src_dev_type = agent_list_[src_dev_idx].device_type_;
+  hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
   if (src_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(src_agent, dst);
-  } else {
+  } else if (dst_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(dst_agent, src);
   }
   
@@ -319,13 +320,6 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         hsa_signal_store_relaxed(signal_start_bidir, 1);
       }
 
-      if (validate_) { 
-        AcquirePoolAcceses(src_dev_idx_fwd,
-                           src_agent_fwd, buf_src_fwd,
-                           dst_dev_idx_fwd,
-                           dst_agent_fwd, buf_dst_fwd);
-      }
-
       // Create a timer object and reset signals
       PerfTimer timer;
       uint32_t index = timer.CreateTimer();
@@ -400,11 +394,6 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
 
       if (validate_) {
 
-        // Re-Establish access to destination buffer and host buffer
-        AcquirePoolAcceses(dst_dev_idx_fwd,
-                           dst_agent_fwd, buf_dst_fwd,
-                           cpu_index_, cpu_agent_, validation_dst);
-
         // Init dst buffer with values from outbuffer of copy operation
         hsa_signal_store_relaxed(validation_signal, 1);
         copy_buffer(validation_dst, cpu_agent_,
@@ -449,6 +438,12 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
     hsa_signal_t fake_signal = {0};
     ReleaseBuffers(false, validation_src, NULL,
                    validation_dst, NULL, validation_signal, fake_signal);
+  }
+
+  // Free signal used to sync bidirectional copies
+  if (bidir) {
+    err_ = hsa_signal_destroy(signal_start_bidir);
+    ErrorCheck(err_);
   }
 }
 
