@@ -161,7 +161,8 @@ void RocmBandwidthTest::Display() const {
     PrintVersion();
     DisplayDevInfo();
     PrintAccessMatrix();
-    PrintLinkMatrix();
+    PrintLinkWeightMatrix();
+    PrintLinkTypeMatrix();
     DisplayCopyTimeMatrix(true);
     return;
   }
@@ -171,7 +172,8 @@ void RocmBandwidthTest::Display() const {
       PrintVersion();
       DisplayDevInfo();
       PrintAccessMatrix();
-      PrintLinkMatrix();
+      PrintLinkWeightMatrix();
+      PrintLinkTypeMatrix();
     }
     DisplayCopyTimeMatrix(true);
     return;

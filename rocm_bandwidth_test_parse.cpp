@@ -319,7 +319,8 @@ void RocmBandwidthTest::ParseArguments() {
   if (print_topology) {
     PrintTopology();
     PrintAccessMatrix();
-    PrintLinkMatrix();
+    PrintLinkWeightMatrix();
+    PrintLinkTypeMatrix();
     exit(0);
   }
 
