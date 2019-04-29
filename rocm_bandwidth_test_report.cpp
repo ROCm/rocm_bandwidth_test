@@ -152,7 +152,7 @@ void RocmBandwidthTest::Display() const {
   if (validate_) {
     PrintVersion();
     DisplayDevInfo();
-    PrintAccessMatrix();
+    PrintLinkPropsMatrix(LINK_PROP_ACCESS);
     DisplayValidationMatrix();
     return;
   }
@@ -160,9 +160,9 @@ void RocmBandwidthTest::Display() const {
   if (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR) {
     PrintVersion();
     DisplayDevInfo();
-    PrintAccessMatrix();
-    PrintLinkWeightMatrix();
-    PrintLinkTypeMatrix();
+    PrintLinkPropsMatrix(LINK_PROP_ACCESS);
+    PrintLinkPropsMatrix(LINK_PROP_WEIGHT);
+    PrintLinkPropsMatrix(LINK_PROP_TYPE);
     DisplayCopyTimeMatrix(true);
     return;
   }
@@ -171,9 +171,9 @@ void RocmBandwidthTest::Display() const {
     if (bw_default_run_ == NULL) {
       PrintVersion();
       DisplayDevInfo();
-      PrintAccessMatrix();
-      PrintLinkWeightMatrix();
-      PrintLinkTypeMatrix();
+      PrintLinkPropsMatrix(LINK_PROP_ACCESS);
+      PrintLinkPropsMatrix(LINK_PROP_WEIGHT);
+      PrintLinkPropsMatrix(LINK_PROP_TYPE);
     }
     DisplayCopyTimeMatrix(true);
     return;

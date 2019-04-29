@@ -172,11 +172,9 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
           continue;
         }
 
-        if (src_dev_idx > dst_dev_idx) {
-          bool mirror = FindMirrorRequest(src_idx, dst_idx);
-          if (mirror) {
-            continue;
-          }
+        bool mirror = FindMirrorRequest(src_idx, dst_idx);
+        if (mirror) {
+          continue;
         }
       }
 

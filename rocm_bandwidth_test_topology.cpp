@@ -201,6 +201,7 @@ void RocmBandwidthTest::PopulateAccessMatrix() {
 
   // Allocate memory to hold access lists
   access_matrix_ = new uint32_t[agent_index_ * agent_index_]();
+  direct_access_matrix_ = new uint32_t[agent_index_ * agent_index_]();
 
   hsa_status_t status;
   uint32_t size = pool_list_.size();
@@ -225,6 +226,11 @@ void RocmBandwidthTest::PopulateAccessMatrix() {
       status = hsa_amd_agent_memory_pool_get_info(src_agent, dst_pool,
                              HSA_AMD_AGENT_MEMORY_POOL_INFO_ACCESS, &access);
       ErrorCheck(status);
+      
+      // Record if Src device can access or not
+      uint32_t path;
+      path = (access == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) ? 0 : 1;
+      direct_access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = path;
 
       if ((src_dev_type == HSA_DEVICE_TYPE_CPU) &&
           (dst_dev_type == HSA_DEVICE_TYPE_GPU) &&
@@ -235,7 +241,6 @@ void RocmBandwidthTest::PopulateAccessMatrix() {
       }
 
       // Access between the two agents is Non-Existent
-      uint32_t path;
       path = (access == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) ? 0 : 1;
       access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = path;
     }
@@ -250,88 +255,54 @@ void RocmBandwidthTest::DiscoverTopology() {
   // Populate the access, link type and weight matrices
   // Access matrix must be populated first
   PopulateAccessMatrix();
-  DiscoverLinkType();
-  DiscoverLinkWeight();
+  DiscoverLinkProps();
 }
 
-void RocmBandwidthTest::BindLinkType(uint32_t idx1, uint32_t idx2) {
+uint32_t GetLinkType(hsa_device_type_t src_dev_type,
+                     hsa_device_type_t dst_dev_type,
+                     hsa_amd_memory_pool_link_info_t* link_info, uint32_t hops) {
   
-  // Agent has no pools so no need to look for link type distance
-  if (agent_pool_list_[idx2].pool_list.size() == 0) {
-    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
-    return;
+  // Link type is ignored, linkinfo is illegal
+  // Currently Thunk collapses multi-hop paths into one
+  // while accumulating their numa weight
+  // @note: Thunk retains the original link type
+  if (hops != 1) {
+    return RocmBandwidthTest::LINK_TYPE_IGNORED;
   }
   
-  uint32_t hops = 0;
-  hsa_agent_t agent1 = agent_list_[idx1].agent_;
-  hsa_amd_memory_pool_t& pool = agent_pool_list_[idx2].pool_list[0].pool_;
-  err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
-                   HSA_AMD_AGENT_MEMORY_POOL_INFO_NUM_LINK_HOPS, &hops);
-  if (hops < 1) {
-    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
-    return;
+  // Return link type only if it specified as XGMI
+  if ((link_info[0]).link_type == HSA_AMD_LINK_INFO_TYPE_XGMI) {
+    return RocmBandwidthTest::LINK_TYPE_XGMI;
   }
 
-  hsa_amd_memory_pool_link_info_t* link_info;
-  uint32_t link_info_sz = hops * sizeof(hsa_amd_memory_pool_link_info_t);
-  link_info = (hsa_amd_memory_pool_link_info_t *)malloc(link_info_sz);
-  memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
-  err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
-                 HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
-  
-  // Initialize link type based on Src and Dst devices plus link
-  // type reported by ROCr library
-  hsa_device_type_t src_dev_type = agent_list_[idx1].device_type_;
-  hsa_device_type_t dst_dev_type = agent_list_[idx2].device_type_;
-  link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
-  
-  // Update link matrix if there is one hop. Currently Thunk
-  // accumulates numa weight of the multiple hops into one link
-  if (hops == 1) {
-    if ((link_info[0]).link_type == HSA_AMD_LINK_INFO_TYPE_XGMI) {
-      link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_XGMI;
-      free(link_info); 
-      return;
-    }
-
-    // Update link type to be PCIE if one or both devices are GPU's
-    if ((src_dev_type == HSA_DEVICE_TYPE_GPU) ||
-        (dst_dev_type == HSA_DEVICE_TYPE_GPU)) {
-      link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_PCIE;
-      free(link_info); 
-      return;
-    }
+  // In this case all we know is there is a path involving
+  // one or more links. Since it binding either two GPU's or
+  // one Gpu and one Cpu, we infer it to be of type PCIe
+  if ((src_dev_type == HSA_DEVICE_TYPE_GPU) ||
+      (dst_dev_type == HSA_DEVICE_TYPE_GPU)) {
+    return RocmBandwidthTest::LINK_TYPE_PCIE;
   }
-  
-  // This should not be happening
-  link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_MULTI_HOPS;
-  free(link_info); 
+
+  // This occurs when both devices are CPU's
+  return RocmBandwidthTest::LINK_TYPE_IGNORED;
 }
 
-void RocmBandwidthTest::DiscoverLinkType() {
+uint32_t GetLinkWeight(hsa_amd_memory_pool_link_info_t* link_info, uint32_t hops) {
 
-  // Allocate space if it is first time
-  if (link_type_matrix_ == NULL) {
-    link_type_matrix_ = new uint32_t[agent_index_ * agent_index_]();
+  uint32_t weight = 0;
+  for(uint32_t hopIdx = 0; hopIdx < hops; hopIdx++) {
+    weight += (link_info[hopIdx]).numa_distance;
   }
-
-  agent_info_t agent_info;
-  for (uint32_t idx1 = 0; idx1 < agent_index_; idx1++) {
-    for (uint32_t idx2 = 0; idx2 < agent_index_; idx2++) {
-      if (idx1 == idx2) {
-        link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_SELF;
-        continue;
-      }
-      BindLinkType(idx1, idx2);
-    }
-  }
+  return weight;
 }
 
-void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
+void RocmBandwidthTest::BindLinkProps(uint32_t idx1, uint32_t idx2) {
   
   // Agent has no pools so no need to look for numa distance
   if (agent_pool_list_[idx2].pool_list.size() == 0) {
+    link_hops_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
     link_weight_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
+    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
     return;
   }
   
@@ -341,7 +312,9 @@ void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
   err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
                    HSA_AMD_AGENT_MEMORY_POOL_INFO_NUM_LINK_HOPS, &hops);
   if (hops < 1) {
+    link_hops_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
     link_weight_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
+    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
     return;
   }
 
@@ -351,17 +324,27 @@ void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
   memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
   err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
                  HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
-  link_weight_matrix_[(idx1 * agent_index_) + idx2] = 0;
-  for(uint32_t hopIdx = 0; hopIdx < hops; hopIdx++) {
-    link_weight_matrix_[(idx1 * agent_index_) + idx2] += (link_info[hopIdx]).numa_distance;
-  }
+
+
+  link_hops_matrix_[(idx1 * agent_index_) + idx2] = hops;
+  link_weight_matrix_[(idx1 * agent_index_) + idx2] = GetLinkWeight(link_info, hops);
+  
+  // Initialize link type based on Src and Dst devices plus link
+  // type reported by ROCr library
+  hsa_device_type_t src_dev_type = agent_list_[idx1].device_type_;
+  hsa_device_type_t dst_dev_type = agent_list_[idx2].device_type_;
+  link_type_matrix_[(idx1 * agent_index_) + idx2] = GetLinkType(src_dev_type,
+                                                                dst_dev_type, link_info, hops);
+  // Free the allocated link block
   free(link_info); 
 }
 
-void RocmBandwidthTest::DiscoverLinkWeight() {
+void RocmBandwidthTest::DiscoverLinkProps() {
 
   // Allocate space if it is first time
   if (link_weight_matrix_ == NULL) {
+    link_type_matrix_ = new uint32_t[agent_index_ * agent_index_]();
+    link_hops_matrix_ = new uint32_t[agent_index_ * agent_index_]();
     link_weight_matrix_ = new uint32_t[agent_index_ * agent_index_]();
   }
 
@@ -369,10 +352,12 @@ void RocmBandwidthTest::DiscoverLinkWeight() {
   for (uint32_t idx1 = 0; idx1 < agent_index_; idx1++) {
     for (uint32_t idx2 = 0; idx2 < agent_index_; idx2++) {
       if (idx1 == idx2) {
+        link_hops_matrix_[(idx1 * agent_index_) + idx2] = 0;
         link_weight_matrix_[(idx1 *agent_index_) + idx2] = 0;
+        link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_SELF;
         continue;
       }
-      BindLinkWeight(idx1, idx2);
+      BindLinkProps(idx1, idx2);
     }
   }
 }

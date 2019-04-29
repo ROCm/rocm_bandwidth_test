@@ -317,10 +317,11 @@ void RocmBandwidthTest::ParseArguments() {
   
   // Print system topology if user option has "-t"
   if (print_topology) {
+    PrintVersion();
     PrintTopology();
-    PrintAccessMatrix();
-    PrintLinkWeightMatrix();
-    PrintLinkTypeMatrix();
+    PrintLinkPropsMatrix(LINK_PROP_ACCESS);
+    PrintLinkPropsMatrix(LINK_PROP_TYPE);
+    PrintLinkPropsMatrix(LINK_PROP_WEIGHT);
     exit(0);
   }
 

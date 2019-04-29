@@ -207,13 +207,9 @@ class RocmBandwidthTest : public BaseTest {
   // @brief: Discover the topology of pools on Rocm Platform
   void DiscoverTopology();
 
-  // @brief: Populate link type for the set of agents
-  void DiscoverLinkType();
-  void BindLinkType(uint32_t idx1, uint32_t idx2);
-
-  // @brief: Populate link weight for the set of agents
-  void DiscoverLinkWeight();
-  void BindLinkWeight(uint32_t idx1, uint32_t idx2);
+  // @brief: Populate link properties for the set of agents
+  void DiscoverLinkProps();
+  void BindLinkProps(uint32_t idx1, uint32_t idx2);
 
   // @brief: Populates the access matrix
   void PopulateAccessMatrix();
@@ -221,14 +217,10 @@ class RocmBandwidthTest : public BaseTest {
   // @brief: Print topology info
   void PrintTopology();
 
-  // @brief: Print link type matrix
-  void PrintLinkTypeMatrix() const;
-
-  // @brief: Print link weight matrix
-  void PrintLinkWeightMatrix() const;
-
-  // @brief: Print access matrix
-  void PrintAccessMatrix() const;
+  // @brief: Print in matrix form various
+  // properties such as access, link weight,
+  // link type and number of hops, etc
+  void PrintLinkPropsMatrix(uint32_t key) const;
 
   // @brief: Print info on agents in system
   void PrintAgentsList();
@@ -343,6 +335,15 @@ class RocmBandwidthTest : public BaseTest {
   // Populate the Bus Device Function of Gpu device
   friend void PopulateBDF(uint32_t bdf_id, agent_info_t *agent_info);
 
+  // Compute the type and weight of a link
+  friend uint32_t GetLinkType(hsa_device_type_t src_dev_type,
+                     hsa_device_type_t dst_dev_type,
+                     hsa_amd_memory_pool_link_info_t* link_info, uint32_t hops);
+  friend uint32_t GetLinkWeight(hsa_amd_memory_pool_link_info_t* link_info, uint32_t hops);
+
+  // Return value of input key as string
+  friend std::string GetValueAsString(uint32_t key, uint32_t value);
+
   // Structure of Version used to identify an instance of RocmBandwidthTest
   struct RocmBandwidthVersion {
 
@@ -433,8 +434,13 @@ class RocmBandwidthTest : public BaseTest {
   static const uint32_t LINK_TYPE_SELF = 0x00;
   static const uint32_t LINK_TYPE_PCIE = 0x01;
   static const uint32_t LINK_TYPE_XGMI = 0x02;
-  static const uint32_t LINK_TYPE_MULTI_HOPS = 0x03;
+  static const uint32_t LINK_TYPE_IGNORED = 0x03;
   static const uint32_t LINK_TYPE_NO_PATH = 0xFFFFFFFF;
+
+  static const uint32_t LINK_PROP_HOPS = 0x00;
+  static const uint32_t LINK_PROP_TYPE = 0x01;
+  static const uint32_t LINK_PROP_WEIGHT = 0x02;
+  static const uint32_t LINK_PROP_ACCESS = 0x03;
 
   // List used to store transactions per user request
   vector<async_trans_t> trans_list_;
@@ -444,8 +450,10 @@ class RocmBandwidthTest : public BaseTest {
 
   // Matrix used to track Access among agents
   uint32_t* access_matrix_;
+  uint32_t* link_hops_matrix_;
   uint32_t* link_type_matrix_;
   uint32_t* link_weight_matrix_;
+  uint32_t* direct_access_matrix_;
   
   // Env key to determine if Fine-grained or
   // Coarse-grained pool should be filtered out
