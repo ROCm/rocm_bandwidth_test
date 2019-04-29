@@ -231,10 +231,12 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
     uint32_t dst_idx = trans.copy.dst_idx_;
     uint32_t src_dev_idx = pool_list_[src_idx].agent_index_;
     uint32_t dst_dev_idx = pool_list_[dst_idx].agent_index_;
-    if (peak) {
-      perf_matrix[(src_dev_idx * agent_index_) + dst_dev_idx] = trans.peak_bandwidth_[0];
-    } else {
-      perf_matrix[(src_dev_idx * agent_index_) + dst_dev_idx] = trans.avg_bandwidth_[0];
+
+    // For COPY_ALL_UNIDIR and COPY_ALL_BIDIR we use only one copy size
+    double bandwidth = (peak) ? trans.peak_bandwidth_[0] : trans.avg_bandwidth_[0];
+    perf_matrix[(src_dev_idx * agent_index_) + dst_dev_idx] = bandwidth;
+    if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
+      perf_matrix[(dst_dev_idx * agent_index_) + src_dev_idx] = bandwidth;
     }
   }
 
@@ -314,6 +316,9 @@ void RocmBandwidthTest::DisplayValidationMatrix() const {
     uint32_t src_dev_idx = pool_list_[src_idx].agent_index_;
     uint32_t dst_dev_idx = pool_list_[dst_idx].agent_index_;
     perf_matrix[(src_dev_idx * agent_index_) + dst_dev_idx] = trans.peak_bandwidth_[0];
+    if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
+      perf_matrix[(dst_dev_idx * agent_index_) + src_dev_idx] = trans.peak_bandwidth_[0];
+    }
   }
 
   uint32_t format = 10;

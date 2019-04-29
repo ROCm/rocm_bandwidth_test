@@ -326,6 +326,9 @@ class RocmBandwidthTest : public BaseTest {
                      hsa_device_type_t dev_type,
                      bool fine_grained);
 
+  // Find the mirror transaction if present
+  bool FindMirrorRequest(uint32_t src_idx, uint32_t dst_idx);
+
   // @brief: Check if agent and access memory pool, if so, set 
   // access to the agent, if not, exit
   void AcquireAccess(hsa_agent_t agent, void* ptr);

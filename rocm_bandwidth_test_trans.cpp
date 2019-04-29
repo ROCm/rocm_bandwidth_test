@@ -43,6 +43,20 @@
 #include "common.hpp"
 #include "rocm_bandwidth_test.hpp"
 
+bool RocmBandwidthTest::FindMirrorRequest(uint32_t src_idx, uint32_t dst_idx) {
+
+  uint32_t size = trans_list_.size();
+  for (uint32_t idx = 0; idx < size; idx++) {
+    async_trans_t& mirror = trans_list_[idx];
+    if ((src_idx == mirror.copy.dst_idx_) &&
+        (dst_idx == mirror.copy.src_idx_)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool RocmBandwidthTest::BuildReadOrWriteTrans(uint32_t req_type,
                                       vector<size_t>& in_list) {
 
@@ -157,6 +171,13 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
         if (src_dev_idx == dst_dev_idx) {
           continue;
         }
+
+        if (src_dev_idx > dst_dev_idx) {
+          bool mirror = FindMirrorRequest(src_idx, dst_idx);
+          if (mirror) {
+            continue;
+          }
+        }
       }
 
       // Determine if accessibility to dst pool for src agent is not denied
@@ -168,6 +189,17 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
         } else {
           PrintCopyAccessError(src_idx, dst_idx);
           return false;
+        }
+      }
+
+      // For bidirectional copies determine both access paths are valid
+      // Both paths are valid when one of the devices is a CPU. This is
+      // not true when both of the devices are GPU's.
+      if ((req_type == REQ_COPY_ALL_BIDIR) ||
+          (req_type == REQ_COPY_ALL_UNIDIR)) {
+        path_exists = access_matrix_[(dst_dev_idx * agent_index_) + src_dev_idx];
+        if (path_exists == 0) {
+          continue;
         }
       }
 
