@@ -177,13 +177,58 @@ void RocmBandwidthTest::PrintAccessMatrix() const {
   std::cout << std::endl;
 }
 
-void RocmBandwidthTest::PrintLinkMatrix() const {
+void RocmBandwidthTest::PrintLinkTypeMatrix() const {
 
-  // uint32_t format = 12;
   uint32_t format = 10;
   std::cout.setf(ios::left);
 
-  // std::cout << std::endl;
+  std::cout.width(format);
+  std::cout << "";
+  std::cout.width(format);
+  std::cout << "Device Link Types: P == PCIe, X == xGMI, NP == No Path, N/A = Not Applicable";
+  std::cout << std::endl;
+  std::cout << std::endl;
+
+  std::cout.width(format);
+  std::cout << "";
+  std::cout.width(format);
+  std::cout << "D/D";
+  for (uint32_t idx0 = 0; idx0 < agent_index_; idx0++) {
+    std::cout.width(format);
+    std::cout << idx0;
+  }
+  std::cout << std::endl;
+  std::cout << std::endl;
+
+  for (uint32_t src_idx = 0; src_idx < agent_index_; src_idx++) {
+    std::cout.width(format);
+    std::cout << "";
+    std::cout.width(format);
+    std::cout << src_idx;
+    for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
+      uint32_t link_type = link_type_matrix_[(src_idx * agent_index_) + dst_idx];
+      std::cout.width(format);
+      if (link_type == LINK_TYPE_SELF) {
+        std::cout << "N/A";
+      } else if (link_type == LINK_TYPE_XGMI) {
+        std::cout << "X";
+      } else if (link_type == LINK_TYPE_PCIE) {
+        std::cout << "P";
+      } else if (link_type == LINK_TYPE_NO_PATH) {
+        std::cout << "NP";
+      }
+    }
+    std::cout << std::endl;
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+void RocmBandwidthTest::PrintLinkWeightMatrix() const {
+
+  uint32_t format = 10;
+  std::cout.setf(ios::left);
+
   std::cout.width(format);
   std::cout << "";
   std::cout.width(format);
@@ -208,7 +253,7 @@ void RocmBandwidthTest::PrintLinkMatrix() const {
     std::cout.width(format);
     std::cout << src_idx;
     for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
-      uint32_t link_weight = link_matrix_[(src_idx * agent_index_) + dst_idx];
+      uint32_t link_weight = link_weight_matrix_[(src_idx * agent_index_) + dst_idx];
       std::cout.width(format);
       if (link_weight == 0xFFFFFFFF) {
         std::cout << "N/A";

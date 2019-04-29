@@ -533,9 +533,10 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   req_copy_all_bidir_ = REQ_INVALID;
   req_copy_all_unidir_ = REQ_INVALID;
   
-  link_matrix_ = NULL;
   access_matrix_ = NULL;
+  link_type_matrix_ = NULL;
   active_agents_list_ = NULL;
+  link_weight_matrix_ = NULL;
   
   latency_ = false;
   validate_ = false;
@@ -543,8 +544,8 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 0;
-  version_.step_id = 1;
+  version_.minor_id = 1;
+  version_.step_id = 0;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
@@ -563,7 +564,13 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   exit_value_ = 0;
 }
 
-RocmBandwidthTest::~RocmBandwidthTest() { }
+RocmBandwidthTest::~RocmBandwidthTest() {
+
+  delete access_matrix_;
+  delete link_type_matrix_;
+  delete link_weight_matrix_;
+  delete active_agents_list_;
+}
 
 std::string RocmBandwidthTest::GetVersion() const {
 

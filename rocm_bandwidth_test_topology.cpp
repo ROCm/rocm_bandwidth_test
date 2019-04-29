@@ -247,15 +247,18 @@ void RocmBandwidthTest::DiscoverTopology() {
   // Populate the lists of agents and pools
   err_ = hsa_iterate_agents(AgentInfo, this);
 
-  // Populate the access matrix
+  // Populate the access, link type and weight matrices
+  // Access matrix must be populated first
   PopulateAccessMatrix();
+  DiscoverLinkType();
   DiscoverLinkWeight();
 }
 
-void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
+void RocmBandwidthTest::BindLinkType(uint32_t idx1, uint32_t idx2) {
   
-  // Agent has no pools so no need to look for numa distance
+  // Agent has no pools so no need to look for link type distance
   if (agent_pool_list_[idx2].pool_list.size() == 0) {
+    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
     return;
   }
   
@@ -265,7 +268,61 @@ void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
   err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
                    HSA_AMD_AGENT_MEMORY_POOL_INFO_NUM_LINK_HOPS, &hops);
   if (hops < 1) {
-    link_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
+    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
+    return;
+  }
+
+  hsa_amd_memory_pool_link_info_t* link_info;
+  uint32_t link_info_sz = hops * sizeof(hsa_amd_memory_pool_link_info_t);
+  link_info = (hsa_amd_memory_pool_link_info_t *)malloc(link_info_sz);
+  memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
+  err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
+                 HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
+  link_type_matrix_[(idx1 * agent_index_) + idx2] = 0;
+  for(uint32_t hopIdx = 0; hopIdx < hops; hopIdx++) {
+    if ((link_info[hopIdx]).link_type != HSA_AMD_LINK_INFO_TYPE_XGMI) {
+      link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_PCIE;
+      break;
+    }
+    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_XGMI;
+  }
+  free(link_info); 
+}
+
+void RocmBandwidthTest::DiscoverLinkType() {
+
+  // Allocate space if it is first time
+  if (link_type_matrix_ == NULL) {
+    link_type_matrix_ = new uint32_t[agent_index_ * agent_index_]();
+  }
+
+  agent_info_t agent_info;
+  for (uint32_t idx1 = 0; idx1 < agent_index_; idx1++) {
+    for (uint32_t idx2 = 0; idx2 < agent_index_; idx2++) {
+      if (idx1 == idx2) {
+        link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_SELF;
+        continue;
+      }
+      BindLinkType(idx1, idx2);
+    }
+  }
+}
+
+void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
+  
+  // Agent has no pools so no need to look for numa distance
+  if (agent_pool_list_[idx2].pool_list.size() == 0) {
+    link_weight_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
+    return;
+  }
+  
+  uint32_t hops = 0;
+  hsa_agent_t agent1 = agent_list_[idx1].agent_;
+  hsa_amd_memory_pool_t& pool = agent_pool_list_[idx2].pool_list[0].pool_;
+  err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
+                   HSA_AMD_AGENT_MEMORY_POOL_INFO_NUM_LINK_HOPS, &hops);
+  if (hops < 1) {
+    link_weight_matrix_[(idx1 * agent_index_) + idx2] = 0xFFFFFFFF;
     return;
   }
 
@@ -275,10 +332,9 @@ void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
   memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
   err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
                  HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
-  link_matrix_[(idx1 *agent_index_) + idx2] = 0;
+  link_weight_matrix_[(idx1 * agent_index_) + idx2] = 0;
   for(uint32_t hopIdx = 0; hopIdx < hops; hopIdx++) {
-    link_matrix_[(idx1 *agent_index_) + idx2] += (link_info[hopIdx]).numa_distance;
-
+    link_weight_matrix_[(idx1 * agent_index_) + idx2] += (link_info[hopIdx]).numa_distance;
   }
   free(link_info); 
 }
@@ -286,15 +342,15 @@ void RocmBandwidthTest::BindLinkWeight(uint32_t idx1, uint32_t idx2) {
 void RocmBandwidthTest::DiscoverLinkWeight() {
 
   // Allocate space if it is first time
-  if (link_matrix_ == NULL) {
-    link_matrix_ = new uint32_t[agent_index_ * agent_index_]();
+  if (link_weight_matrix_ == NULL) {
+    link_weight_matrix_ = new uint32_t[agent_index_ * agent_index_]();
   }
 
   agent_info_t agent_info;
   for (uint32_t idx1 = 0; idx1 < agent_index_; idx1++) {
     for (uint32_t idx2 = 0; idx2 < agent_index_; idx2++) {
       if (idx1 == idx2) {
-        link_matrix_[(idx1 *agent_index_) + idx2] = 0;
+        link_weight_matrix_[(idx1 *agent_index_) + idx2] = 0;
         continue;
       }
       BindLinkWeight(idx1, idx2);
