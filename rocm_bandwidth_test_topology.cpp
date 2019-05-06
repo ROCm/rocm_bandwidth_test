@@ -278,14 +278,33 @@ void RocmBandwidthTest::BindLinkType(uint32_t idx1, uint32_t idx2) {
   memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
   err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
                  HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
-  link_type_matrix_[(idx1 * agent_index_) + idx2] = 0;
-  for(uint32_t hopIdx = 0; hopIdx < hops; hopIdx++) {
-    if ((link_info[hopIdx]).link_type != HSA_AMD_LINK_INFO_TYPE_XGMI) {
-      link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_PCIE;
-      break;
+  
+  // Initialize link type based on Src and Dst devices plus link
+  // type reported by ROCr library
+  hsa_device_type_t src_dev_type = agent_list_[idx1].device_type_;
+  hsa_device_type_t dst_dev_type = agent_list_[idx2].device_type_;
+  link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_NO_PATH;
+  
+  // Update link matrix if there is one hop. Currently Thunk
+  // accumulates numa weight of the multiple hops into one link
+  if (hops == 1) {
+    if ((link_info[0]).link_type == HSA_AMD_LINK_INFO_TYPE_XGMI) {
+      link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_XGMI;
+      free(link_info); 
+      return;
     }
-    link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_XGMI;
+
+    // Update link type to be PCIE if one or both devices are GPU's
+    if ((src_dev_type == HSA_DEVICE_TYPE_GPU) ||
+        (dst_dev_type == HSA_DEVICE_TYPE_GPU)) {
+      link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_PCIE;
+      free(link_info); 
+      return;
+    }
   }
+  
+  // This should not be happening
+  link_type_matrix_[(idx1 * agent_index_) + idx2] = LINK_TYPE_MULTI_HOPS;
   free(link_info); 
 }
 
