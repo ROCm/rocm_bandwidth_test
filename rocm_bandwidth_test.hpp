@@ -433,6 +433,7 @@ class RocmBandwidthTest : public BaseTest {
   static const uint32_t LINK_TYPE_SELF = 0x00;
   static const uint32_t LINK_TYPE_PCIE = 0x01;
   static const uint32_t LINK_TYPE_XGMI = 0x02;
+  static const uint32_t LINK_TYPE_MULTI_HOPS = 0x03;
   static const uint32_t LINK_TYPE_NO_PATH = 0xFFFFFFFF;
 
   // List used to store transactions per user request

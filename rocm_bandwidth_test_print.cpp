@@ -185,7 +185,7 @@ void RocmBandwidthTest::PrintLinkTypeMatrix() const {
   std::cout.width(format);
   std::cout << "";
   std::cout.width(format);
-  std::cout << "Device Link Types: P == PCIe, X == xGMI, NP == No Path, N/A = Not Applicable";
+  std::cout << "Device Link Types: P = PCIe, X = xGMI, N/A = Not Applicable";
   std::cout << std::endl;
   std::cout << std::endl;
 
@@ -208,14 +208,14 @@ void RocmBandwidthTest::PrintLinkTypeMatrix() const {
     for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
       uint32_t link_type = link_type_matrix_[(src_idx * agent_index_) + dst_idx];
       std::cout.width(format);
-      if (link_type == LINK_TYPE_SELF) {
-        std::cout << "N/A";
-      } else if (link_type == LINK_TYPE_XGMI) {
+      if (link_type == LINK_TYPE_XGMI) {
         std::cout << "X";
       } else if (link_type == LINK_TYPE_PCIE) {
         std::cout << "P";
-      } else if (link_type == LINK_TYPE_NO_PATH) {
-        std::cout << "NP";
+      } else if ((link_type == LINK_TYPE_SELF) ||
+                 (link_type == LINK_TYPE_NO_PATH) ||
+                 (link_type == LINK_TYPE_MULTI_HOPS)) {
+        std::cout << "N/A";
       }
     }
     std::cout << std::endl;
