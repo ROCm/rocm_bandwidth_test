@@ -43,6 +43,11 @@
 #include "common.hpp"
 #include "rocm_bandwidth_test.hpp"
 
+#include <assert.h>
+#include <iostream>
+#include <string>
+#include <sstream>
+
 // @Brief: Print Help Menu Screen
 void RocmBandwidthTest::PrintHelpScreen() {
 
@@ -137,7 +142,37 @@ void RocmBandwidthTest::PrintTopology() {
   std::cout << std::endl;
 }
 
-void RocmBandwidthTest::PrintAccessMatrix() const {
+std::string GetValueAsString(uint32_t key, uint32_t value) {
+
+  std::stringstream ss;
+
+  switch(key) {
+    case RocmBandwidthTest::LINK_PROP_ACCESS:
+      ss << value;
+      return ss.str();
+      break;
+    case RocmBandwidthTest::LINK_PROP_HOPS:
+    case RocmBandwidthTest::LINK_PROP_WEIGHT:
+      ss << value;
+      return (value == 0xFFFFFFFF) ? std::string("N/A") :  ss.str();
+      break;
+    case RocmBandwidthTest::LINK_PROP_TYPE:
+      if ((value == RocmBandwidthTest::LINK_TYPE_SELF) ||
+          (value == RocmBandwidthTest::LINK_TYPE_NO_PATH) ||
+          (value == RocmBandwidthTest::LINK_TYPE_IGNORED)) {
+        return std::string("N/A");
+      } else if (value == RocmBandwidthTest::LINK_TYPE_XGMI) {
+        return std::string("X");
+      } else if (value == RocmBandwidthTest::LINK_TYPE_PCIE) {
+        return std::string("P");
+      }
+      break;
+  }
+  std::cout << "An illegal key to get value for" << std::endl;
+  assert(false);
+}
+
+void RocmBandwidthTest::PrintLinkPropsMatrix(uint32_t key) const {
 
   uint32_t format = 10;
   std::cout.setf(ios::left);
@@ -146,7 +181,23 @@ void RocmBandwidthTest::PrintAccessMatrix() const {
   std::cout << "";
   std::cout.width(format);
   
-  std::cout << "Device Access";
+  switch(key) {
+    case LINK_PROP_ACCESS:
+      std::cout << "Inter-Device Access";
+      break;
+    case LINK_PROP_TYPE:
+      std::cout << "Inter-Device Link Type: P = PCIe, X = xGMI, N/A = Not Applicable";
+      break;
+    case LINK_PROP_HOPS:
+      std::cout << "Inter-Device Link Hops";
+      break;
+    case LINK_PROP_WEIGHT:
+      std::cout << "Inter-Device Numa Distance";
+      break;
+    default:
+      std::cout << "An illegal key to print matrix" << std::endl;
+      assert(false);
+  }
   std::cout << std::endl;
   std::cout << std::endl;
 
@@ -167,99 +218,23 @@ void RocmBandwidthTest::PrintAccessMatrix() const {
     std::cout.width(format);
     std::cout << src_idx;
     for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
-      uint32_t path_exists = access_matrix_[(src_idx * agent_index_) + dst_idx];
-      std::cout.width(format);
-      std::cout << path_exists;
-    }
-    std::cout << std::endl;
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-}
-
-void RocmBandwidthTest::PrintLinkTypeMatrix() const {
-
-  uint32_t format = 10;
-  std::cout.setf(ios::left);
-
-  std::cout.width(format);
-  std::cout << "";
-  std::cout.width(format);
-  std::cout << "Device Link Types: P = PCIe, X = xGMI, N/A = Not Applicable";
-  std::cout << std::endl;
-  std::cout << std::endl;
-
-  std::cout.width(format);
-  std::cout << "";
-  std::cout.width(format);
-  std::cout << "D/D";
-  for (uint32_t idx0 = 0; idx0 < agent_index_; idx0++) {
-    std::cout.width(format);
-    std::cout << idx0;
-  }
-  std::cout << std::endl;
-  std::cout << std::endl;
-
-  for (uint32_t src_idx = 0; src_idx < agent_index_; src_idx++) {
-    std::cout.width(format);
-    std::cout << "";
-    std::cout.width(format);
-    std::cout << src_idx;
-    for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
-      uint32_t link_type = link_type_matrix_[(src_idx * agent_index_) + dst_idx];
-      std::cout.width(format);
-      if (link_type == LINK_TYPE_XGMI) {
-        std::cout << "X";
-      } else if (link_type == LINK_TYPE_PCIE) {
-        std::cout << "P";
-      } else if ((link_type == LINK_TYPE_SELF) ||
-                 (link_type == LINK_TYPE_NO_PATH) ||
-                 (link_type == LINK_TYPE_MULTI_HOPS)) {
-        std::cout << "N/A";
+      uint32_t value = 0x00;
+      switch(key) {
+        case LINK_PROP_ACCESS:
+          value = direct_access_matrix_[(src_idx * agent_index_) + dst_idx];
+          break;
+        case LINK_PROP_TYPE:
+          value = link_type_matrix_[(src_idx * agent_index_) + dst_idx];
+          break;
+        case LINK_PROP_HOPS:
+          value = link_hops_matrix_[(src_idx * agent_index_) + dst_idx];
+          break;
+        case LINK_PROP_WEIGHT:
+          value = link_weight_matrix_[(src_idx * agent_index_) + dst_idx];
+          break;
       }
-    }
-    std::cout << std::endl;
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-}
-
-void RocmBandwidthTest::PrintLinkWeightMatrix() const {
-
-  uint32_t format = 10;
-  std::cout.setf(ios::left);
-
-  std::cout.width(format);
-  std::cout << "";
-  std::cout.width(format);
-  std::cout << "Device Numa Distance";
-  std::cout << std::endl;
-  std::cout << std::endl;
-
-  std::cout.width(format);
-  std::cout << "";
-  std::cout.width(format);
-  std::cout << "D/D";
-  for (uint32_t idx0 = 0; idx0 < agent_index_; idx0++) {
-    std::cout.width(format);
-    std::cout << idx0;
-  }
-  std::cout << std::endl;
-  std::cout << std::endl;
-
-  for (uint32_t src_idx = 0; src_idx < agent_index_; src_idx++) {
-    std::cout.width(format);
-    std::cout << "";
-    std::cout.width(format);
-    std::cout << src_idx;
-    for (uint32_t dst_idx = 0; dst_idx < agent_index_; dst_idx++) {
-      uint32_t link_weight = link_weight_matrix_[(src_idx * agent_index_) + dst_idx];
       std::cout.width(format);
-      if (link_weight == 0xFFFFFFFF) {
-        std::cout << "N/A";
-      } else {
-        std::cout << link_weight;
-      }
+      std::cout << GetValueAsString(key, value);
     }
     std::cout << std::endl;
     std::cout << std::endl;

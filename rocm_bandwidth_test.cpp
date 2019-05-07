@@ -197,9 +197,24 @@ double RocmBandwidthTest::GetGpuCopyTime(bool bidir,
   hsa_amd_profiling_async_copy_time_t async_time_rev = {0};
   err_= hsa_amd_profiling_get_async_copy_time(signal_rev, &async_time_rev);
   ErrorCheck(err_);
+  
+  // Compute time taken to copy
   double start = min(async_time_fwd.start, async_time_rev.start);
   double end = max(async_time_fwd.end, async_time_rev.end);
-  return(end - start);
+  double copy_time = end - start;
+
+  // Forward copy completed before Reverse began
+  if (async_time_fwd.end < async_time_rev.start) {
+    return (copy_time - (async_time_rev.start - async_time_fwd.end));
+  }
+
+  // Reverse copy completed before Forward began
+  if (async_time_rev.end < async_time_fwd.start) {
+    return (copy_time - (async_time_fwd.start - async_time_rev.end));
+  }
+
+  // Forward and Reverse copies overlapped
+  return copy_time;
 }
 
 void RocmBandwidthTest::copy_buffer(void* dst, hsa_agent_t dst_agent,
@@ -544,7 +559,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 1;
+  version_.minor_id = 2;
   version_.step_id = 0;
   version_.reserved = 0;
 
