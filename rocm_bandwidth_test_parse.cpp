@@ -43,9 +43,19 @@
 #include "common.hpp"
 #include "rocm_bandwidth_test.hpp"
 
+#include <assert.h>
 #include <algorithm>
 #include <sstream>
 #include <unistd.h>
+
+// Parse option value string. The string has one decimal
+// value as in example: -i 0x33
+static bool ParseInitValue(char* value_str, uint8_t&value) {
+ 
+  // Capture the option value string
+  uint32_t value_read = strtoul(value_str, NULL, 0);
+  return ((value = value_read) && (value_read > 255)) ? false : true;
+}
 
 // Parse option value string. The string has one more decimal
 // values separated by comma - "3,6,9,12,15".
@@ -80,80 +90,190 @@ static bool ParseOptionValue(char* value, vector<size_t>&value_list) {
   return true;
 }
 
-void RocmBandwidthTest::ValidateInputFlags(uint32_t pf_cnt,
-                                uint32_t copy_mask, uint32_t copy_ctrl_mask) {
+void RocmBandwidthTest::ValidateCopyBidirFlags(uint32_t copy_ctrl_mask) {
 
-  // Input can't have more than two Primary flags
-  if (pf_cnt > 2) {
+  // It is illegal to specify following flags
+  // secondary flag that affects a copy operation
+  if ((copy_ctrl_mask & DEV_COPY_LATENCY) ||
+       (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
+       (copy_ctrl_mask & VALIDATE_COPY_OP)) {
+      PrintHelpScreen();
+      exit(0);
+  }
+
+  return;
+}
+
+void RocmBandwidthTest::ValidateCopyUnidirFlags(uint32_t copy_mask,
+                                                uint32_t copy_ctrl_mask) {
+
+  if (copy_mask != (USR_SRC_FLAG | USR_DST_FLAG)) {
     PrintHelpScreen();
     exit(0);
   }
 
-  // Input specifies unidirectional copy among subset of devices
-  if (pf_cnt == 2) {
-    if (copy_mask != (USR_SRC_FLAG | USR_DST_FLAG)) {
+  // It is illegal to specify Latency and another
+  // secondary flag that affects a copy operation
+  if ((copy_ctrl_mask & DEV_COPY_LATENCY) &&
+       ((copy_ctrl_mask & USR_BUFFER_INIT) ||
+        (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
+        (copy_ctrl_mask & VALIDATE_COPY_OP))) {
       PrintHelpScreen();
       exit(0);
-    }
   }
 
-  // Rewrite input if user is requesting validation
-  if (pf_cnt == 0) {
-    if (copy_ctrl_mask & VALIDATE_COPY_OP) {
-       req_copy_all_unidir_ = REQ_COPY_ALL_UNIDIR;
-    }
+  // It is illegal to specify user buffer sizes and another
+  // secondary flag that affects a copy operation
+  if ((copy_ctrl_mask & USR_BUFFER_SIZE) &&
+        (copy_ctrl_mask & VALIDATE_COPY_OP)) {
+      PrintHelpScreen();
+      exit(0);
   }
 
-  // User input for primary operation is valid.
-  // Determine secondary flags are legal
+  // Check of illegal flags is complete
+  return;
+}
 
-  // Case 1: It is illegal to specify copy size for copy
-  // operations involving all devices
-  if (((req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) ||
-       (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) &&
+void RocmBandwidthTest::ValidateCopyAllBidirFlags(uint32_t copy_ctrl_mask) {
+
+  // It is illegal to specify following flags
+  // secondary flag that affects a copy operation
+  if ((copy_ctrl_mask & DEV_COPY_LATENCY) ||
+       (copy_ctrl_mask & USR_BUFFER_SIZE) ||
+       (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
+       (copy_ctrl_mask & VALIDATE_COPY_OP)) {
+      PrintHelpScreen();
+      exit(0);
+  }
+
+  // Check of illegal flags is complete
+  return;
+}
+
+void RocmBandwidthTest::ValidateCopyAllUnidirFlags(uint32_t copy_ctrl_mask) {
+
+  // It is illegal to specify following flags
+  // secondary flag that affects a copy operation
+  if ((copy_ctrl_mask & DEV_COPY_LATENCY) ||
       (copy_ctrl_mask & USR_BUFFER_SIZE)) {
       PrintHelpScreen();
       exit(0);
   }
 
-  //
-  // Case 2: It is illegal to specify Latency for bidirectional
-  // copy operations or all-unidirectional
-  if (((req_copy_bidir_ == REQ_COPY_BIDIR) ||
-       (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) ||
-       (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) &&
-      (copy_ctrl_mask & DEV_COPY_LATENCY)) {
-      PrintHelpScreen();
-      exit(0);
+  // Check of illegal flags is complete
+  return;
+}
+
+void RocmBandwidthTest::ValidateInputFlags(uint32_t pf_cnt,
+                                uint32_t copy_mask, uint32_t copy_ctrl_mask) {
+
+  // Input can't have more than two Primary flags
+  if ((pf_cnt == 0) || (pf_cnt > 2)) {
+    PrintHelpScreen();
+    exit(0);
   }
 
-  //
-  // Case 3: It is illegal to specify Latency and another secondary
-  // flag that affects a copy operation
-  if ((copy_ctrl_mask & DEV_COPY_LATENCY) &&
-      ((copy_ctrl_mask & USR_BUFFER_SIZE) ||
-       (copy_ctrl_mask & USR_VISIBLE_TIME) ||
-       (copy_ctrl_mask & VALIDATE_COPY_OP))) {
-      PrintHelpScreen();
-      exit(0);
+  // Input specifies unidirectional copy among subset of devices
+  // rocm_bandwidth_test -s Di,Dj,Dk -d Dp,Dq,Dr
+  if (pf_cnt == 2) {
+    return ValidateCopyUnidirFlags(copy_mask, copy_ctrl_mask);
   }
 
-  //
-  // Case 4: It is illegal to request Cpu time along with validation
-  // of copy operation
-  if ((copy_ctrl_mask & VALIDATE_COPY_OP) &&
-      ((copy_ctrl_mask & USR_BUFFER_SIZE) ||
-       (copy_ctrl_mask & USR_VISIBLE_TIME))) {
-      PrintHelpScreen();
-      exit(0);
+  // Input is requesting to print RBT version
+  // rocm_bandwidth_test -q
+  if (req_version_ == REQ_VERSION) {
+    PrintVersion();
+    exit(0);
+  }
+
+  // Input is requesting to print ROCm topology
+  // rocm_bandwidth_test -t
+  if (req_topology_ == REQ_TOPOLOGY) {
+    return;
+  }
+
+  // Input is for bidirectional bandwidth for some devices
+  // rocm_bandwidth_test -b
+  if (req_copy_bidir_ == REQ_COPY_BIDIR) {
+    return ValidateCopyBidirFlags(copy_ctrl_mask);
+  }
+
+  // Input is for bidirectional bandwidth for all devices
+  // rocm_bandwidth_test -A
+  if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
+    return ValidateCopyAllBidirFlags(copy_ctrl_mask);
+  }
+
+  // Input is for unidirectional bandwidth for all devices
+  // rocm_bandwidth_test -a
+  if (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR) {
+    return ValidateCopyAllUnidirFlags(copy_ctrl_mask);
+  }
+
+  std::cout << "ValidateInputFlags: This should not be happening" << std::endl;
+  assert(false);
+  return;
+}
+
+void RocmBandwidthTest::BuildDeviceList() {
+
+  // Initialize devices list if copying unidirectional
+  // all or bidirectional all mode is enabled
+  uint32_t size = pool_list_.size();
+  for (uint32_t idx = 0; idx < size; idx++) {
+    if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
+      bidir_list_.push_back(idx);
+    } else {
+      src_list_.push_back(idx);
+      dst_list_.push_back(idx);
+    }
+  }
+}
+
+void RocmBandwidthTest::BuildBufferList() {
+  
+  // User has specified buffer sizes to be used
+  if (size_list_.size() != 0) {
+    uint32_t size_len = size_list_.size();
+    for (uint32_t idx = 0; idx < size_len; idx++) {
+      size_list_[idx] = size_list_[idx] * 1024 * 1024;
+    }
+    return;
+  }
+
+  // User has NOT specified buffer sizes to be used
+  // For All Copy operations use only one buffer size
+  uint32_t size_len = sizeof(SIZE_LIST)/sizeof(size_t);
+  for (uint32_t idx = 0; idx < size_len; idx++) {
+
+    if ((req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) ||
+        (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
+      if (idx == 16) {
+        size_list_.push_back(SIZE_LIST[idx]);
+      }
+    }
+
+    if (req_copy_unidir_ == REQ_COPY_UNIDIR) {
+      if (latency_) {
+        size_list_.push_back(LATENCY_SIZE_LIST[idx]);
+      } else if (validate_) {
+        if (idx == 16) {
+          size_list_.push_back(SIZE_LIST[idx]);
+        }
+      } else {
+        size_list_.push_back(SIZE_LIST[idx]);
+      }
+    }
+
+    if (req_copy_bidir_ == REQ_COPY_BIDIR) {
+      size_list_.push_back(SIZE_LIST[idx]);
+    }
   }
 }
 
 void RocmBandwidthTest::ParseArguments() {
 
-  bool print_help = false;
-  bool print_version = false;
-  bool print_topology = false;
+  bool print_help = 0;
   uint32_t copy_mask = 0;
   uint32_t copy_ctrl_mask = 0;
   uint32_t num_primary_flags = 0;
@@ -165,25 +285,24 @@ void RocmBandwidthTest::ParseArguments() {
   
   int opt;
   bool status;
-  while ((opt = getopt(usr_argc_, usr_argv_, "hqtclvaAb:s:d:r:w:m:")) != -1) {
+  while ((opt = getopt(usr_argc_, usr_argv_, "hqtclvaAb:i:s:d:r:w:m:")) != -1) {
     switch (opt) {
 
       // Print help screen
       case 'h':
         print_help = true;
-        num_primary_flags++;
         break;
 
       // Print version of the test
       case 'q':
-        print_version = true;
         num_primary_flags++;
+        req_version_ = REQ_VERSION;
         break;
 
       // Print system topology
       case 't':
-        print_topology = true;
         num_primary_flags++;
+        req_topology_ = REQ_TOPOLOGY;
         break;
 
       // Enable Unidirectional copy among all valid buffers
@@ -226,6 +345,7 @@ void RocmBandwidthTest::ParseArguments() {
       case 'b':
         status = ParseOptionValue(optarg, bidir_list_);
         if (status) {
+          num_primary_flags++;
           req_copy_bidir_ = REQ_COPY_BIDIR;
           break;
         }
@@ -244,7 +364,7 @@ void RocmBandwidthTest::ParseArguments() {
       // Print Cpu time
       case 'c':
         print_cpu_time_ = true;
-        copy_ctrl_mask |= USR_VISIBLE_TIME;
+        copy_ctrl_mask |= CPU_VISIBLE_TIME;
         break;
 
       // Set Latency mode flag to true
@@ -257,6 +377,16 @@ void RocmBandwidthTest::ParseArguments() {
       case 'v':
         validate_ = true;
         copy_ctrl_mask |= VALIDATE_COPY_OP;
+        break;
+
+      // Set initialization mode flag to true
+      case 'i':
+        init_ = true;
+        status = ParseInitValue(optarg, init_val_);
+        if (status == false) {
+          print_help = true;
+        }
+        copy_ctrl_mask |= USR_BUFFER_INIT;
         break;
 
       // Collect request to read a buffer
@@ -282,8 +412,9 @@ void RocmBandwidthTest::ParseArguments() {
       // optopt
       case '?':
         std::cout << "Argument is illegal or needs value: " << '?' << std::endl;
-        if ((optopt == 'b' || optopt == 's' || optopt == 'd' || optopt == 'm')) {
-          std::cout << "Error: Option -b -s -d and -m require argument" << std::endl;
+        if ((optopt == 'b') || (optopt == 's') ||
+            (optopt == 'd') || (optopt == 'm') || (optopt == 'i')) {
+          std::cout << "Error: Options -b -s -d and -m -i require argument" << std::endl;
         }
         print_help = true;
         break;
@@ -292,9 +423,6 @@ void RocmBandwidthTest::ParseArguments() {
         break;
     }
   }
-
-  // Determine input of primary flags is valid
-  ValidateInputFlags(num_primary_flags, copy_mask, copy_ctrl_mask);
   
   // Print help screen if user option has "-h"
   if (print_help) {
@@ -302,11 +430,8 @@ void RocmBandwidthTest::ParseArguments() {
     exit(0);
   }
   
-  // Print version of the test
-  if (print_version) {
-    PrintVersion();
-    exit(0);
-  }
+  // Determine input of primary flags is valid
+  ValidateInputFlags(num_primary_flags, copy_mask, copy_ctrl_mask);
   
   // Initialize Roc Runtime
   err_ = hsa_init();
@@ -316,7 +441,7 @@ void RocmBandwidthTest::ParseArguments() {
   DiscoverTopology();
   
   // Print system topology if user option has "-t"
-  if (print_topology) {
+  if (req_topology_ == REQ_TOPOLOGY) {
     PrintVersion();
     PrintTopology();
     PrintLinkPropsMatrix(LINK_PROP_ACCESS);
@@ -325,72 +450,15 @@ void RocmBandwidthTest::ParseArguments() {
     exit(0);
   }
 
-  // Initialize buffer list if full copying in unidirectional
-  // or bidirectional mode is enabled
+  // Initialize devices list if copying unidirectional
+  // all or bidirectional all mode is enabled
   if ((req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR) ||
       (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-    uint32_t size = pool_list_.size();
-    for (uint32_t idx = 0; idx < size; idx++) {
-      if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
-        bidir_list_.push_back(idx);
-      } else {
-        src_list_.push_back(idx);
-        dst_list_.push_back(idx);
-      }
-    }
+    BuildDeviceList();
   }
-
-  // Initialize the list of buffer sizes to use in copy/read/write operations
-  // For All Copy operations use only one buffer size
-  if (size_list_.size() == 0) {
-    uint32_t size_len = sizeof(SIZE_LIST)/sizeof(size_t);
-    for (uint32_t idx = 0; idx < size_len; idx++) {
-
-      if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
-        if (idx == 16) {
-          size_list_.push_back(SIZE_LIST[idx]);
-        }
-      }
-
-      if (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR) {
-        if (idx == 16) {
-          if (latency_ == false) {
-            size_list_.push_back(SIZE_LIST[idx]);
-          } else {
-            size_list_.push_back(LATENCY_SIZE_LIST[3]); // size of 8 bytes
-          }
-        }
-      }
-
-      if (req_copy_unidir_ == REQ_COPY_UNIDIR) {
-        if (latency_) {
-          size_list_.push_back(LATENCY_SIZE_LIST[idx]);
-        } else if (validate_) {
-          if (idx == 16) {
-            size_list_.push_back(SIZE_LIST[idx]);
-          }
-        } else {
-          size_list_.push_back(SIZE_LIST[idx]);
-        }
-      }
-
-      if (req_copy_bidir_ == REQ_COPY_BIDIR) {
-        if (validate_) {
-          if (idx == 16) {
-            size_list_.push_back(SIZE_LIST[idx]);
-          }
-        } else {
-          size_list_.push_back(SIZE_LIST[idx]);
-        }
-      }
-    }
-  } else {
-    uint32_t size_len = size_list_.size();
-    for (uint32_t idx = 0; idx < size_len; idx++) {
-      size_list_[idx] = size_list_[idx] * 1024 * 1024;
-    }
-  }
-
+  
+  // Initialize list of buffer sizes used in copy operations
+  BuildBufferList();
   std::sort(size_list_.begin(), size_list_.end());
 }
 

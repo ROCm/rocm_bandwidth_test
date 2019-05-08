@@ -59,6 +59,7 @@ void RocmBandwidthTest::PrintHelpScreen() {
   std::cout << "\t -v    Run the test in validation mode" << std::endl;
   std::cout << "\t -l    Run test to collect Latency data" << std::endl;
   std::cout << "\t -c    Time the operation using CPU Timers" << std::endl;
+  std::cout << "\t -i    Initialize copy buffer with specified byte pattern" << std::endl;
   std::cout << "\t -t    Prints system topology and allocatable memory info" << std::endl;
   std::cout << "\t -m    List of buffer sizes to use, specified in Megabytes" << std::endl;
   std::cout << "\t -b    List devices to use in bidirectional copy operations" << std::endl;
@@ -69,13 +70,13 @@ void RocmBandwidthTest::PrintHelpScreen() {
   std::cout << std::endl;
   
   std::cout << "\t NOTE: Mixing following options is illegal/unsupported" << std::endl;
-  std::cout << "\t\t Case 1: rocm_bandwidth_test -a or -A with -m" << std::endl;
-  std::cout << "\t\t Case 2: rocm_bandwidth_test -b or -A with -l" << std::endl;
-  std::cout << "\t\t Case 3: rocm_bandwidth_test -a or -s x -d with -l and -c" << std::endl;
-  std::cout << "\t\t Case 4: rocm_bandwidth_test -a or -s x -d with -l and -m" << std::endl;
-  std::cout << "\t\t Case 5: rocm_bandwidth_test -a or -s x -d with -l and -v" << std::endl;
-  std::cout << "\t\t Case 6: rocm_bandwidth_test -a or -A -b or -s x -d y with -v and -c" << std::endl;
-  std::cout << "\t\t Case 7: rocm_bandwidth_test -a or -A -b or -s x -d y with -v and -m" << std::endl;
+  std::cout << "\t\t Case 1: rocm_bandwidth_test -a or -A with -c" << std::endl;
+  std::cout << "\t\t Case 2: rocm_bandwidth_test -b or -A with -m" << std::endl;
+  std::cout << "\t\t Case 3: rocm_bandwidth_test -b or -A with -l" << std::endl;
+  std::cout << "\t\t Case 4: rocm_bandwidth_test -b or -A with -v" << std::endl;
+  std::cout << "\t\t Case 5: rocm_bandwidth_test -a or -s x -d y with -l and -c" << std::endl;
+  std::cout << "\t\t Case 6: rocm_bandwidth_test -a or -s x -d y with -l and -m" << std::endl;
+  std::cout << "\t\t Case 7: rocm_bandwidth_test -a or -s x -d y with -l and -v" << std::endl;
   std::cout << std::endl;
 
 

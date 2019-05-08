@@ -166,11 +166,13 @@ typedef enum Request_Type {
 
   REQ_READ = 1,
   REQ_WRITE = 2,
-  REQ_COPY_BIDIR = 3,
-  REQ_COPY_UNIDIR = 4,
-  REQ_COPY_ALL_BIDIR = 5,
-  REQ_COPY_ALL_UNIDIR = 6,
-  REQ_INVALID = 7,
+  REQ_VERSION = 3,
+  REQ_TOPOLOGY = 4,
+  REQ_COPY_BIDIR = 5,
+  REQ_COPY_UNIDIR = 6,
+  REQ_COPY_ALL_BIDIR = 7,
+  REQ_COPY_ALL_UNIDIR = 8,
+  REQ_INVALID = 9,
 
 } Request_Type;
 
@@ -255,6 +257,8 @@ class RocmBandwidthTest : public BaseTest {
   double GetMinTime(std::vector<double>& vec);
 
   // @brief: Dispaly Benchmark result
+  void PopulatePerfMatrix(bool peak, double* perf_matrix) const;
+  void PrintPerfMatrix(bool validate, bool peak, double* perf_matrix) const;
   void DisplayDevInfo() const;
   void DisplayIOTime(async_trans_t& trans) const;
   void DisplayCopyTime(async_trans_t& trans) const;
@@ -268,6 +272,11 @@ class RocmBandwidthTest : public BaseTest {
   bool ValidateReadReq();
   bool ValidateWriteReq();
   bool ValidateReadOrWriteReq(vector<size_t>& in_list);
+
+  void ValidateCopyBidirFlags(uint32_t copy_ctrl_mask);
+  void ValidateCopyAllBidirFlags(uint32_t copy_ctrl_mask);
+  void ValidateCopyAllUnidirFlags(uint32_t copy_ctrl_mask);
+  void ValidateCopyUnidirFlags(uint32_t copy_mask, uint32_t copy_ctrl_mask);
   
   bool ValidateBidirCopyReq();
   bool ValidateUnidirCopyReq();
@@ -280,6 +289,8 @@ class RocmBandwidthTest : public BaseTest {
 
   // @brief: Builds a list of transaction per user request
   void ComputeCopyTime(async_trans_t& trans);
+  void BuildDeviceList();
+  void BuildBufferList();
   bool BuildTransList();
   bool BuildReadTrans();
   bool BuildWriteTrans();
@@ -293,24 +304,23 @@ class RocmBandwidthTest : public BaseTest {
                       vector<size_t>& src_list,
                       vector<size_t>& dst_list);
 
+  void WaitForCopyCompletion(vector<hsa_signal_t>& signal_list);
+
   void AllocateCopyBuffers(size_t size,
-                           uint32_t src_dev_idx, uint32_t dst_dev_idx,
                            void*& src, hsa_amd_memory_pool_t src_pool,
-                           void*& dst, hsa_amd_memory_pool_t dst_pool,
-                           hsa_agent_t src_agent, hsa_agent_t dst_agent,
-                           hsa_signal_t& signal);
-  void ReleaseBuffers(bool bidir,
-                      void* src_fwd, void* src_rev,
-                      void* dst_fwd, void* dst_rev,
-                      hsa_signal_t signal_fwd, hsa_signal_t signal_rev);
+                           void*& dst, hsa_amd_memory_pool_t dst_pool);
+  
+  void ReleaseBuffers(std::vector<void*>& buffer_list);
+  void ReleaseSignals(std::vector<hsa_signal_t>& signal_list);
+  
   double GetGpuCopyTime(bool bidir, hsa_signal_t signal_fwd, hsa_signal_t signal_rev);
-  void AllocateHostBuffers(size_t size,
-                           uint32_t src_dev_idx,
-                           uint32_t dst_dev_idx,
-                           void*& src, void*& dst,
-                           void* buf_src, void* buf_dst,
-                           hsa_agent_t src_agent, hsa_agent_t dst_agent,
-                           hsa_signal_t& signal);
+  
+  void InitializeSrcBuffer(size_t size, void* buf_cpy,
+                           uint32_t cpy_dev_idx, hsa_agent_t cpy_agent);
+  
+  bool ValidateDstBuffer(size_t max_size, size_t curr_size,
+                         void* buf_cpy, uint32_t cpy_dev_idx, hsa_agent_t cpy_agent);
+
   void copy_buffer(void* dst, hsa_agent_t dst_agent,
                    void* src, hsa_agent_t src_agent,
                    size_t size, hsa_signal_t signal);
@@ -418,6 +428,8 @@ class RocmBandwidthTest : public BaseTest {
   // Type of service requested by user
   uint32_t req_read_;
   uint32_t req_write_;
+  uint32_t req_version_;
+  uint32_t req_topology_;
   uint32_t req_copy_bidir_;
   uint32_t req_copy_unidir_;
   uint32_t req_copy_all_bidir_;
@@ -427,9 +439,10 @@ class RocmBandwidthTest : public BaseTest {
   static const uint32_t USR_DST_FLAG = 0x02;
 
   static const uint32_t USR_BUFFER_SIZE = 0x01;
-  static const uint32_t USR_VISIBLE_TIME = 0x02;
-  static const uint32_t DEV_COPY_LATENCY = 0x04;
-  static const uint32_t VALIDATE_COPY_OP = 0x08;
+  static const uint32_t USR_BUFFER_INIT = 0x02;
+  static const uint32_t CPU_VISIBLE_TIME = 0x04;
+  static const uint32_t DEV_COPY_LATENCY = 0x08;
+  static const uint32_t VALIDATE_COPY_OP = 0x010;
 
   static const uint32_t LINK_TYPE_SELF = 0x00;
   static const uint32_t LINK_TYPE_PCIE = 0x01;
@@ -482,9 +495,18 @@ class RocmBandwidthTest : public BaseTest {
   // Flag to print Cpu time
   bool print_cpu_time_;
 
+  // Determines if user has requested initialization
+  bool init_;
+
   // Determines if user has requested validation
   bool validate_;
+  uint8_t init_val_;
 
+  // Handles to buffer used to initialize and validate
+  void* init_src_;
+  void* validate_dst_;
+  hsa_signal_t init_signal_;
+ 
   // Determines the latency overhead of copy operations
   bool latency_;
 
