@@ -162,7 +162,6 @@ void RocmBandwidthTest::Display() const {
     DisplayDevInfo();
     PrintLinkPropsMatrix(LINK_PROP_ACCESS);
     PrintLinkPropsMatrix(LINK_PROP_WEIGHT);
-    PrintLinkPropsMatrix(LINK_PROP_TYPE);
     DisplayCopyTimeMatrix(true);
     return;
   }
@@ -173,7 +172,6 @@ void RocmBandwidthTest::Display() const {
       DisplayDevInfo();
       PrintLinkPropsMatrix(LINK_PROP_ACCESS);
       PrintLinkPropsMatrix(LINK_PROP_WEIGHT);
-      PrintLinkPropsMatrix(LINK_PROP_TYPE);
     }
     DisplayCopyTimeMatrix(true);
     return;
@@ -221,9 +219,8 @@ void RocmBandwidthTest::DisplayCopyTime(async_trans_t& trans) const {
   }
 }
 
-void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
+void RocmBandwidthTest::PopulatePerfMatrix(bool peak, double* perf_matrix) const {
 
-  double* perf_matrix = new double[agent_index_ * agent_index_]();
   uint32_t trans_size = trans_list_.size();
   for (uint32_t idx = 0; idx < trans_size; idx++) {
     async_trans_t trans = trans_list_[idx];
@@ -240,6 +237,10 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
     }
   }
 
+}
+
+void RocmBandwidthTest::PrintPerfMatrix(bool validate, bool peak, double* perf_matrix) const {
+
   uint32_t format = 10;
   std::cout.setf(ios::left);
 
@@ -247,20 +248,24 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
   std::cout << "";
   std::cout.width(format);
   
-  if ((peak) && (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
-    std::cout << "Unidirectional copy peak bandwidth GB/s";
-  }
-  
-  if ((peak == false) && (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
-    std::cout << "Unidirectional copy average bandwidth GB/s";
-  }
-  
-  if ((peak) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-    std::cout << "Bdirectional copy peak bandwidth GB/s";
-  }
-  
-  if ((peak == false) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-    std::cout << "Bidirectional copy average bandwidth GB/s";
+  if (validate == false) { 
+    if ((peak) && (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
+      std::cout << "Unidirectional copy peak bandwidth GB/s";
+    }
+    
+    if ((peak == false) && (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
+      std::cout << "Unidirectional copy average bandwidth GB/s";
+    }
+    
+    if ((peak) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
+      std::cout << "Bdirectional copy peak bandwidth GB/s";
+    }
+    
+    if ((peak == false) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
+      std::cout << "Bidirectional copy average bandwidth GB/s";
+    }
+  } else {
+    std::cout << "Data Path Validation";
   }
 
   std::cout << std::endl;
@@ -293,10 +298,20 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
       format = 12;
       std::cout.width(format);
       double value = perf_matrix[(idx0 * agent_index_) + idx1];
-      if (value == 0) {
-        std::cout << "N/A";
+      if (validate) {
+        if (value == 0) {
+          std::cout << "N/A";
+        } else if (value < 1) {
+          std::cout << "FAIL";
+        } else {
+          std::cout << "PASS";
+        }
       } else {
-        std::cout << perf_matrix[(idx0 * agent_index_) + idx1];
+        if (value == 0) {
+          std::cout << "N/A";
+        } else {
+          std::cout << perf_matrix[(idx0 * agent_index_) + idx1];
+        }
       }
     }
     std::cout << std::endl;
@@ -305,73 +320,20 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
   std::cout << std::endl;
 }
 
+void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
+
+  double* perf_matrix = new double[agent_index_ * agent_index_]();
+  PopulatePerfMatrix(peak, perf_matrix);
+  PrintPerfMatrix(false, peak, perf_matrix);
+  free(perf_matrix);
+}
+
 void RocmBandwidthTest::DisplayValidationMatrix() const {
 
   double* perf_matrix = new double[agent_index_ * agent_index_]();
-  uint32_t trans_size = trans_list_.size();
-  for (uint32_t idx = 0; idx < trans_size; idx++) {
-    async_trans_t trans = trans_list_[idx];
-    uint32_t src_idx = trans.copy.src_idx_;
-    uint32_t dst_idx = trans.copy.dst_idx_;
-    uint32_t src_dev_idx = pool_list_[src_idx].agent_index_;
-    uint32_t dst_dev_idx = pool_list_[dst_idx].agent_index_;
-    perf_matrix[(src_dev_idx * agent_index_) + dst_dev_idx] = trans.peak_bandwidth_[0];
-    if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
-      perf_matrix[(dst_dev_idx * agent_index_) + src_dev_idx] = trans.peak_bandwidth_[0];
-    }
-  }
-
-  uint32_t format = 10;
-  std::cout.setf(ios::left);
-
-  std::cout.width(format);
-  std::cout << "";
-  std::cout.width(format);
-  
-  std::cout << "Data Path Validation";
-
-  std::cout << std::endl;
-  std::cout << std::endl;
-  std::cout.precision(6);
-  std::cout << std::fixed;
-
-  std::cout.width(format);
-  std::cout << "";
-  std::cout.width(format);
-  std::cout << "D/D";
-  format = 12;
-  for (uint32_t idx0 = 0; idx0 < agent_index_; idx0++) {
-    std::cout.width(format);
-    std::stringstream agent_id;
-    agent_id << idx0;
-    std::cout << agent_id.str();
-  }
-  std::cout << std::endl;
-  std::cout << std::endl;
-  for (uint32_t idx0 = 0; idx0 < agent_index_; idx0++) {
-    format = 10;
-    std::cout.width(format);
-    std::cout << "";
-    std::stringstream agent_id;
-    agent_id << idx0;
-    std::cout.width(format);
-    std::cout << agent_id.str();
-    for (uint32_t idx1 = 0; idx1 < agent_index_; idx1++) {
-      format = 12;
-      std::cout.width(format);
-      double value = perf_matrix[(idx0 * agent_index_) + idx1];
-      if (value == 0) {
-        std::cout << "N/A";
-      } else if (value < 1) {
-        std::cout << "FAIL";
-      } else {
-        std::cout << "PASS";
-      }
-    }
-    std::cout << std::endl;
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
+  PopulatePerfMatrix(true, perf_matrix);
+  PrintPerfMatrix(true, true, perf_matrix);
+  free(perf_matrix);
 }
 
 void RocmBandwidthTest::DisplayDevInfo() const {

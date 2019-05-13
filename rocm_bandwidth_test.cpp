@@ -97,87 +97,93 @@ void RocmBandwidthTest::AcquirePoolAcceses(uint32_t src_dev_idx,
   
   return;
 }
-
-void RocmBandwidthTest::AllocateHostBuffers(size_t size,
-                                    uint32_t src_dev_idx,
-                                    uint32_t dst_dev_idx,
-                                    void*& src, void*& dst,
-                                    void* buf_src, void* buf_dst,
-                                    hsa_agent_t src_agent, hsa_agent_t dst_agent,
-                                    hsa_signal_t& signal) {
+  
+void RocmBandwidthTest::InitializeSrcBuffer(size_t size, void* buf_cpy,
+                                     uint32_t cpy_dev_idx, hsa_agent_t cpy_agent) {
 
   // Allocate host buffers and setup accessibility for copy operation
-  err_ = hsa_amd_memory_pool_allocate(sys_pool_, size, 0, (void**)&src);
-  ErrorCheck(err_);
+  if (init_src_ == NULL) {
+    err_ = hsa_amd_memory_pool_allocate(sys_pool_, size, 0, (void**)&init_src_);
+    ErrorCheck(err_);
+    memset(init_src_, init_val_, size);
+    err_ = hsa_signal_create(0, 0, NULL, &init_signal_);
+    ErrorCheck(err_);
+  }
 
-  // Gain access to the pools
-  AcquirePoolAcceses(cpu_index_, cpu_agent_, src,
-                     src_dev_idx, src_agent, buf_src);
+  // If Copy device is a Gpu setup buffer access
+  hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
+  if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
+    AcquireAccess(cpy_agent, init_src_);
+    hsa_signal_store_relaxed(init_signal_, 1);
+    copy_buffer(buf_cpy, cpy_agent,
+                init_src_, cpu_agent_,
+                size, init_signal_);
+    return;
+  }
 
-  err_ = hsa_amd_memory_pool_allocate(sys_pool_, size, 0, (void**)&dst);
-  ErrorCheck(err_);
-
-  // Gain access to the pools
-  AcquirePoolAcceses(dst_dev_idx, dst_agent, buf_dst,
-                     cpu_index_, cpu_agent_, dst);
-
-  // Initialize host buffers to a determinate value
-  memset(src, 0x23, size);
-  memset(dst, 0x00, size);
-  
-  // Create a signal to wait on copy operation
-  // @TODO: replace it with a signal pool call
-  err_ = hsa_signal_create(1, 0, NULL, &signal);
-  ErrorCheck(err_);
-
+  // Copy initialization buffer into copy buffer
+  memcpy(buf_cpy, init_src_, size);
   return;
+}
+  
+bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, void* buf_cpy,
+                                          uint32_t cpy_dev_idx, hsa_agent_t cpy_agent) {
+
+  // Allocate host buffers and setup accessibility for copy operation
+  if (validate_dst_ == NULL) {
+    err_ = hsa_amd_memory_pool_allocate(sys_pool_, max_size, 0, (void**)&validate_dst_);
+    ErrorCheck(err_);
+  }
+
+  // If Copy device is a Gpu setup buffer access
+  memset(validate_dst_, ~init_val_, curr_size);
+  hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
+  if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
+    AcquireAccess(cpy_agent, validate_dst_);
+    hsa_signal_store_relaxed(init_signal_, 1);
+    copy_buffer(validate_dst_, cpu_agent_,
+                buf_cpy, cpy_agent,
+                curr_size, init_signal_);
+  } else {
+
+    // Copying device is a CPU, copy dst buffer
+    // into validation buffer
+    memcpy(validate_dst_, buf_cpy, curr_size);
+  }
+
+  // Copy initialization buffer into copy buffer
+  err_ = (hsa_status_t)memcmp(init_src_, validate_dst_, curr_size);
+  if (err_ != HSA_STATUS_SUCCESS) {
+    exit_value_ = err_;
+  }
+  return (err_ == HSA_STATUS_SUCCESS);
 }
 
 void RocmBandwidthTest::AllocateCopyBuffers(size_t size,
-                        uint32_t src_dev_idx, uint32_t dst_dev_idx,
                         void*& src, hsa_amd_memory_pool_t src_pool,
-                        void*& dst, hsa_amd_memory_pool_t dst_pool,
-                        hsa_agent_t src_agent, hsa_agent_t dst_agent,
-                        hsa_signal_t& signal) {
+                        void*& dst, hsa_amd_memory_pool_t dst_pool) {
 
   // Allocate buffers in src and dst pools for forward copy
   err_ = hsa_amd_memory_pool_allocate(src_pool, size, 0, &src);
   ErrorCheck(err_);
   err_ = hsa_amd_memory_pool_allocate(dst_pool, size, 0, &dst);
   ErrorCheck(err_);
-
-  // Create a signal to wait on copy operation
-  // @TODO: replace it with a signal pool call
-  err_ = hsa_signal_create(1, 0, NULL, &signal);
-  ErrorCheck(err_);
-
-  return AcquirePoolAcceses(src_dev_idx, src_agent, src,
-                            dst_dev_idx, dst_agent, dst);
 }
 
-void RocmBandwidthTest::ReleaseBuffers(bool bidir,
-                               void* src_fwd, void* src_rev,
-                               void* dst_fwd, void* dst_rev,
-                               hsa_signal_t signal_fwd,
-                               hsa_signal_t signal_rev) {
+void RocmBandwidthTest::ReleaseBuffers(std::vector<void*>& buffer_list) {
 
-  // Free the src and dst buffers used in forward copy
-  // including the signal used to wait
-  err_ = hsa_amd_memory_pool_free(src_fwd);
-  ErrorCheck(err_);
-  err_ = hsa_amd_memory_pool_free(dst_fwd);
-  ErrorCheck(err_);
-  err_ = hsa_signal_destroy(signal_fwd);
-  ErrorCheck(err_);
+  for(uint32_t idx = 0; idx < buffer_list.size(); idx++) {
+    void* buffer = buffer_list[idx];
+    err_ = hsa_amd_memory_pool_free(buffer);
+    ErrorCheck(err_);
+  }
+}
 
-  // Free the src and dst buffers used in reverse copy
-  // including the signal used to wait
-  if (bidir) {
-    err_ = hsa_amd_memory_pool_free(src_rev);
-    ErrorCheck(err_);
-    err_ = hsa_amd_memory_pool_free(dst_rev);
-    ErrorCheck(err_);
-    err_ = hsa_signal_destroy(signal_rev);
+void RocmBandwidthTest::ReleaseSignals(std::vector<hsa_signal_t>& signal_list) {
+
+  for(uint32_t idx = 0; idx < signal_list.size(); idx++) {
+    hsa_signal_t signal = signal_list[idx];
+    err_ = hsa_signal_destroy(signal);
     ErrorCheck(err_);
   }
 }
@@ -217,6 +223,20 @@ double RocmBandwidthTest::GetGpuCopyTime(bool bidir,
   return copy_time;
 }
 
+void RocmBandwidthTest::WaitForCopyCompletion(vector<hsa_signal_t>& signal_list) {
+
+  hsa_wait_state_t policy = (bw_blocking_run_ == NULL) ?
+                             HSA_WAIT_STATE_ACTIVE : HSA_WAIT_STATE_BLOCKED;
+
+  uint32_t size = signal_list.size();
+  for (uint32_t idx = 0; idx < size; idx++) {
+    hsa_signal_t signal = signal_list[idx];
+    // Wait for copy operation to complete
+    while (hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_LT,
+                                   1, uint64_t(-1), policy));
+  }
+}
+
 void RocmBandwidthTest::copy_buffer(void* dst, hsa_agent_t dst_agent,
                             void* src, hsa_agent_t src_agent,
                             size_t size, hsa_signal_t signal) {
@@ -247,11 +267,8 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   void* buf_dst_fwd;
   void* buf_src_rev;
   void* buf_dst_rev;
-  void* validation_dst;
-  void* validation_src;
   hsa_signal_t signal_fwd;
   hsa_signal_t signal_rev;
-  hsa_signal_t validation_signal;
   hsa_signal_t signal_start_bidir;
   uint32_t src_idx = trans.copy.src_idx_;
   uint32_t dst_idx = trans.copy.dst_idx_;
@@ -267,46 +284,64 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   hsa_agent_t dst_agent_fwd = pool_list_[dst_idx].owner_agent_;
   hsa_agent_t src_agent_rev = dst_agent_fwd;
   hsa_agent_t dst_agent_rev = src_agent_fwd;
+  std::vector<void*> buffer_list;
+  std::vector<hsa_signal_t> signal_list;
 
-  // Allocate buffers and signal objects
+  // Allocate buffers for forward path of unidirectional
+  // or bidirectional copy
   AllocateCopyBuffers(max_size,
-                      src_dev_idx_fwd,
-                      dst_dev_idx_fwd,
                       buf_src_fwd, src_pool_fwd,
-                      buf_dst_fwd, dst_pool_fwd,
-                      src_agent_fwd, dst_agent_fwd,
-                      signal_fwd);
+                      buf_dst_fwd, dst_pool_fwd);
 
+  // Create a signal to wait on copy operation
+  // @TODO: replace it with a signal pool call
+  err_ = hsa_signal_create(1, 0, NULL, &signal_fwd);
+  ErrorCheck(err_);
+
+  // Collect resources to be released later
+  signal_list.push_back(signal_fwd);
+  buffer_list.push_back(buf_src_fwd);
+  buffer_list.push_back(buf_dst_fwd);
+
+  // Allocate buffers for reverse path of bidirectional copy
   if (bidir) {
     AllocateCopyBuffers(max_size,
-                        src_dev_idx_rev,
-                        dst_dev_idx_rev,
                         buf_src_rev, src_pool_rev,
-                        buf_dst_rev, dst_pool_rev,
-                        src_agent_rev, dst_agent_rev,
-                        signal_rev);
+                        buf_dst_rev, dst_pool_rev);
 
     // Create a signal to begin bidir copy operations
     // @TODO: replace it with a signal pool call
+    err_ = hsa_signal_create(1, 0, NULL, &signal_rev);
+    ErrorCheck(err_);
     err_ = hsa_signal_create(1, 0, NULL, &signal_start_bidir);
     ErrorCheck(err_);
+  
+    signal_list.push_back(signal_rev);
+    signal_list.push_back(signal_start_bidir);
+    buffer_list.push_back(buf_src_rev);
+    buffer_list.push_back(buf_dst_rev);
   }
 
-  if (validate_) {
-    AllocateHostBuffers(max_size,
-                        src_dev_idx_fwd,
-                        dst_dev_idx_fwd,
-                        validation_src, validation_dst,
-                        buf_src_fwd, buf_dst_fwd,
-                        src_agent_fwd, dst_agent_fwd,
-                        validation_signal);
+  // Initialize source buffers with data that could be verified
+  if ((init_) || (validate_)) {
+    InitializeSrcBuffer(max_size, buf_src_fwd,
+                        src_dev_idx_fwd, src_agent_fwd);
 
-    // Initialize source buffer with values from verification buffer
-    copy_buffer(buf_src_fwd, src_agent_fwd,
-                validation_src, cpu_agent_,
-                max_size, validation_signal);
+    if (bidir) {
+      InitializeSrcBuffer(max_size, buf_src_rev,
+                          src_dev_idx_rev, src_agent_rev);
+    }
   }
 
+  // Setup access to destination buffers for
+  // both unidirectional and bidirectional copies
+  AcquirePoolAcceses(src_dev_idx_fwd, src_agent_fwd, buf_src_fwd,
+                     dst_dev_idx_fwd, dst_agent_fwd, buf_dst_fwd);
+  if (bidir) {
+    AcquirePoolAcceses(src_dev_idx_rev, src_agent_rev, buf_src_rev,
+                       dst_dev_idx_rev, dst_agent_rev, buf_dst_rev);
+  }
+    
   // Bind the number of iterations
   uint32_t iterations = GetIterationNum();
 
@@ -367,31 +402,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         hsa_signal_store_relaxed(signal_start_bidir, 0);
       }
 
-      if (bw_blocking_run_ == NULL) {
-
-        // Wait for the forward copy operation to complete
-        while (hsa_signal_wait_acquire(signal_fwd, HSA_SIGNAL_CONDITION_LT, 1,
-                                       uint64_t(-1), HSA_WAIT_STATE_ACTIVE));
-
-        // Wait for the reverse copy operation to complete
-        if (bidir) {
-          while (hsa_signal_wait_acquire(signal_rev, HSA_SIGNAL_CONDITION_LT, 1,
-                                         uint64_t(-1), HSA_WAIT_STATE_ACTIVE));
-        }
-
-      } else {
-
-        // Wait for the forward copy operation to complete
-        hsa_signal_wait_acquire(signal_fwd, HSA_SIGNAL_CONDITION_LT, 1,
-                                       uint64_t(-1), HSA_WAIT_STATE_BLOCKED);
-
-        // Wait for the reverse copy operation to complete
-        if (bidir) {
-          hsa_signal_wait_acquire(signal_rev, HSA_SIGNAL_CONDITION_LT, 1,
-                                         uint64_t(-1), HSA_WAIT_STATE_BLOCKED);
-        }
-
-      }
+      WaitForCopyCompletion(signal_list);
 
       // Stop the timer object
       timer.StopTimer(index);
@@ -408,19 +419,8 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       }
 
       if (validate_) {
-
-        // Init dst buffer with values from outbuffer of copy operation
-        hsa_signal_store_relaxed(validation_signal, 1);
-        copy_buffer(validation_dst, cpu_agent_,
-                    buf_dst_fwd, dst_agent_fwd,
-                    curr_size, validation_signal);
-
-        // Compare output equals input
-        err_ = (hsa_status_t)memcmp(validation_src, validation_dst, curr_size);
-        if (err_ != HSA_STATUS_SUCCESS) {
-          verify = false;
-          exit_value_ = err_;
-        }
+        verify = ValidateDstBuffer(max_size, curr_size, buf_dst_fwd,
+                                   dst_dev_idx_fwd, dst_agent_fwd);
       }
     }
 
@@ -446,20 +446,8 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   }
 
   // Free up buffers and signal objects used in copy operation
-  ReleaseBuffers(bidir, buf_src_fwd, buf_src_rev,
-                 buf_dst_fwd, buf_dst_rev, signal_fwd, signal_rev);
-
-  if (validate_) {
-    hsa_signal_t fake_signal = {0};
-    ReleaseBuffers(false, validation_src, NULL,
-                   validation_dst, NULL, validation_signal, fake_signal);
-  }
-
-  // Free signal used to sync bidirectional copies
-  if (bidir) {
-    err_ = hsa_signal_destroy(signal_start_bidir);
-    ErrorCheck(err_);
-  }
+  ReleaseSignals(signal_list);
+  ReleaseBuffers(buffer_list);
 }
 
 void RocmBandwidthTest::Run() {
@@ -553,9 +541,16 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   active_agents_list_ = NULL;
   link_weight_matrix_ = NULL;
   
+  init_ = false;
   latency_ = false;
   validate_ = false;
   print_cpu_time_ = false;
+  
+  // Set initial value to 0x23 in case
+  // user does not have a preference
+  init_val_ = 0x23;
+  init_src_ = NULL;
+  validate_dst_ = NULL;
 
   // Initialize version of the test
   version_.major_id = 2;
@@ -585,6 +580,13 @@ RocmBandwidthTest::~RocmBandwidthTest() {
   delete link_type_matrix_;
   delete link_weight_matrix_;
   delete active_agents_list_;
+  if (init_) {
+    hsa_signal_destroy(init_signal_);
+    hsa_amd_memory_pool_free(init_src_);
+    if (validate_) {
+      hsa_amd_memory_pool_free(validate_dst_);
+    }
+  }
 }
 
 std::string RocmBandwidthTest::GetVersion() const {
