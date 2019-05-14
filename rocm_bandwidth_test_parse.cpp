@@ -112,22 +112,28 @@ void RocmBandwidthTest::ValidateCopyUnidirFlags(uint32_t copy_mask,
     exit(0);
   }
 
+  if ((copy_ctrl_mask & DEV_COPY_LATENCY) &&
+      (copy_ctrl_mask & USR_BUFFER_SIZE)) {
+    PrintHelpScreen();
+    exit(0);
+  }
+
   // It is illegal to specify Latency and another
   // secondary flag that affects a copy operation
   if ((copy_ctrl_mask & DEV_COPY_LATENCY) &&
        ((copy_ctrl_mask & USR_BUFFER_INIT) ||
         (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
         (copy_ctrl_mask & VALIDATE_COPY_OP))) {
-      PrintHelpScreen();
-      exit(0);
+    PrintHelpScreen();
+    exit(0);
   }
 
   // It is illegal to specify user buffer sizes and another
   // secondary flag that affects a copy operation
   if ((copy_ctrl_mask & USR_BUFFER_SIZE) &&
         (copy_ctrl_mask & VALIDATE_COPY_OP)) {
-      PrintHelpScreen();
-      exit(0);
+    PrintHelpScreen();
+    exit(0);
   }
 
   // Check of illegal flags is complete
