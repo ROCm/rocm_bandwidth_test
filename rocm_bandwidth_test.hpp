@@ -172,7 +172,9 @@ typedef enum Request_Type {
   REQ_COPY_UNIDIR = 6,
   REQ_COPY_ALL_BIDIR = 7,
   REQ_COPY_ALL_UNIDIR = 8,
-  REQ_INVALID = 9,
+  REQ_CONCURRENT_COPY_BIDIR = 9,
+  REQ_CONCURRENT_COPY_UNIDIR = 10,
+  REQ_INVALID = 11,
 
 } Request_Type;
 
@@ -247,14 +249,18 @@ class RocmBandwidthTest : public BaseTest {
   // @brief: Run copy requests of users
   void RunCopyBenchmark(async_trans_t& trans);
 
+  // @brief: Run copy requests of users
+  void RunConcurrentCopyBenchmark(bool bidir,
+                                  vector<async_trans_t>& trans_list);
+
   // @brief: Get iteration number
   uint32_t GetIterationNum();
 
   // @brief: Get the mean copy time
-  double GetMeanTime(std::vector<double>& vec);
+  double GetMeanTime(vector<double>& vec);
 
   // @brief: Get the min copy time
-  double GetMinTime(std::vector<double>& vec);
+  double GetMinTime(vector<double>& vec);
 
   // @brief: Dispaly Benchmark result
   void PopulatePerfMatrix(bool peak, double* perf_matrix) const;
@@ -280,6 +286,7 @@ class RocmBandwidthTest : public BaseTest {
   
   bool ValidateBidirCopyReq();
   bool ValidateUnidirCopyReq();
+  bool ValidateConcurrentCopyReq();
   bool ValidateCopyReq(vector<size_t>& in_list);
   void PrintIOAccessError(uint32_t agent_idx, uint32_t pool_idx);
   void PrintCopyAccessError(uint32_t src_pool_idx, uint32_t dst_pool_idx);
@@ -289,6 +296,7 @@ class RocmBandwidthTest : public BaseTest {
 
   // @brief: Builds a list of transaction per user request
   void ComputeCopyTime(async_trans_t& trans);
+  void ComputeCopyTime(vector<async_trans_t>& trans_list);
   void BuildDeviceList();
   void BuildBufferList();
   bool BuildTransList();
@@ -303,6 +311,8 @@ class RocmBandwidthTest : public BaseTest {
   bool BuildCopyTrans(uint32_t req_type,
                       vector<size_t>& src_list,
                       vector<size_t>& dst_list);
+  bool BuildConcurrentCopyTrans(uint32_t req_type,
+                                vector<size_t>& dev_list);
 
   void WaitForCopyCompletion(vector<hsa_signal_t>& signal_list);
 
@@ -310,8 +320,16 @@ class RocmBandwidthTest : public BaseTest {
                            void*& src, hsa_amd_memory_pool_t src_pool,
                            void*& dst, hsa_amd_memory_pool_t dst_pool);
   
-  void ReleaseBuffers(std::vector<void*>& buffer_list);
-  void ReleaseSignals(std::vector<hsa_signal_t>& signal_list);
+  void AllocateConcurrentCopyResources(bool bidir,
+                                       vector<async_trans_t>& trans_list,
+                                       vector<void*>& buffer_list,
+                                       vector<hsa_agent_t>& dev_list,
+                                       vector<uint32_t>& dev_idx_list,
+                                       vector<hsa_signal_t>& sig_list,
+                                       vector<hsa_amd_memory_pool_t>& pool_list);
+  
+  void ReleaseBuffers(vector<void*>& buffer_list);
+  void ReleaseSignals(vector<hsa_signal_t>& signal_list);
   
   double GetGpuCopyTime(bool bidir, hsa_signal_t signal_fwd, hsa_signal_t signal_rev);
   
@@ -329,7 +347,7 @@ class RocmBandwidthTest : public BaseTest {
                      bool fine_grained);
 
   // Find the mirror transaction if present
-  bool FindMirrorRequest(uint32_t src_idx, uint32_t dst_idx);
+  bool FindMirrorRequest(bool reverse, uint32_t src_idx, uint32_t dst_idx);
 
   // @brief: Check if agent and access memory pool, if so, set 
   // access to the agent, if not, exit
@@ -377,9 +395,6 @@ class RocmBandwidthTest : public BaseTest {
   RocmBandwidthVersion version_;
   void PrintVersion() const;
   std::string GetVersion() const;
-
-  // More variables declared for testing
-  // vector<transaction> tran_;
 
   // Used to help count agent_info
   uint32_t agent_index_;
@@ -434,6 +449,8 @@ class RocmBandwidthTest : public BaseTest {
   uint32_t req_copy_unidir_;
   uint32_t req_copy_all_bidir_;
   uint32_t req_copy_all_unidir_;
+  uint32_t req_concurrent_copy_bidir_;
+  uint32_t req_concurrent_copy_unidir_;
   
   static const uint32_t USR_SRC_FLAG = 0x01;
   static const uint32_t USR_DST_FLAG = 0x02;
