@@ -147,52 +147,50 @@ bool RocmBandwidthTest::ValidateUnidirCopyReq() {
   return ((ValidateCopyReq(src_list_)) && (ValidateCopyReq(dst_list_)));
 }
 
+bool RocmBandwidthTest::ValidateConcurrentCopyReq() {
+  
+  // Determine every pool is present in system
+  return PoolIsPresent(bidir_list_);
+}
+
 bool RocmBandwidthTest::ValidateArguments() {
   
   // Determine if user has requested a READ
   // operation and gave valid inputs
-  bool status = false;
   if (req_read_ == REQ_READ) {
-    status = ValidateReadReq();
-    if (status == false) {
-      return status;
-    }
+    return ValidateReadReq();
   }
 
   // Determine if user has requested a WRITE
   // operation and gave valid inputs
-  status = false;
   if (req_write_ == REQ_WRITE) {
-    status = ValidateWriteReq();
-    if (status == false) {
-      return status;
-    }
+    return ValidateWriteReq();
   }
 
   // Determine if user has requested a Copy
   // operation that is bidirectional and gave
   // valid inputs. Same validation is applied
   // for all-to-all unidirectional copy operation
-  status = false;
   if ((req_copy_bidir_ == REQ_COPY_BIDIR) ||
       (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-    status = ValidateBidirCopyReq();
-    if (status == false) {
-      return status;
-    }
+    return ValidateBidirCopyReq();
   }
 
   // Determine if user has requested a Copy
   // operation that is unidirectional and gave
   // valid inputs. Same validation is applied
   // for all-to-all bidirectional copy operation
-  status = false;
   if ((req_copy_unidir_ == REQ_COPY_UNIDIR) ||
       (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR)) {
-    status = ValidateUnidirCopyReq();
-    if (status == false) {
-      return status;
-    }
+    return ValidateUnidirCopyReq();
+  }
+
+  // Determine if user has requested a Concurrent
+  // Copy operation that is unidirectional or bidirectional
+  // and gave valid inputs.
+  if ((req_concurrent_copy_bidir_ == REQ_CONCURRENT_COPY_BIDIR) ||
+      (req_concurrent_copy_unidir_ == REQ_CONCURRENT_COPY_UNIDIR)) {
+    return ValidateConcurrentCopyReq();
   }
 
   // All of the request are well formed

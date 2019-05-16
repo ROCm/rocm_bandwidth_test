@@ -178,14 +178,18 @@ void RocmBandwidthTest::Display() const {
   }
 
   if ((req_copy_bidir_ == REQ_COPY_BIDIR) ||
-      (req_copy_unidir_ == REQ_COPY_UNIDIR)) {
+      (req_copy_unidir_ == REQ_COPY_UNIDIR) ||
+      (req_concurrent_copy_bidir_ == REQ_CONCURRENT_COPY_BIDIR) ||
+      (req_concurrent_copy_unidir_ == REQ_CONCURRENT_COPY_UNIDIR)) {
       PrintVersion();
   }
 
   for (uint32_t idx = 0; idx < trans_size; idx++) {
     async_trans_t trans = trans_list_[idx];
     if ((trans.req_type_ == REQ_COPY_BIDIR) ||
-        (trans.req_type_ == REQ_COPY_UNIDIR)) {
+        (trans.req_type_ == REQ_COPY_UNIDIR) ||
+        (trans.req_type_ == REQ_CONCURRENT_COPY_BIDIR) ||
+        (trans.req_type_ == REQ_CONCURRENT_COPY_UNIDIR)) {
       DisplayCopyTime(trans);
     }
     if ((trans.req_type_ == REQ_READ) ||

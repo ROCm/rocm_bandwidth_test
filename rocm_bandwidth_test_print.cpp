@@ -309,6 +309,11 @@ void RocmBandwidthTest::PrintTransList() {
       std::cout << "   Src Memory Pool used in Copy: " << trans.copy.src_idx_ << std::endl;
       std::cout << "   Dst Memory Pool used in Copy: " << trans.copy.dst_idx_ << std::endl;
     }
+    if ((trans.req_type_ == REQ_CONCURRENT_COPY_BIDIR) ||
+        (trans.req_type_ == REQ_CONCURRENT_COPY_UNIDIR)) {
+      std::cout << "   Src Memory Pool used in Copy: " << trans.copy.src_idx_ << std::endl;
+      std::cout << "   Dst Memory Pool used in Copy: " << trans.copy.dst_idx_ << std::endl;
+    }
 
   }
   std::cout << std::endl;

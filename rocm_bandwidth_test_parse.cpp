@@ -216,6 +216,22 @@ void RocmBandwidthTest::ValidateInputFlags(uint32_t pf_cnt,
     return ValidateCopyAllUnidirFlags(copy_ctrl_mask);
   }
 
+  // Input is requesting to run concurrent copies
+  // rocm_bandwidth_test -k or -K
+  // It is illegal to specify secondary flags
+  if ((req_concurrent_copy_bidir_ == REQ_CONCURRENT_COPY_BIDIR) ||
+      (req_concurrent_copy_unidir_ == REQ_CONCURRENT_COPY_UNIDIR)) {
+    if ((copy_ctrl_mask & DEV_COPY_LATENCY) ||
+        (copy_ctrl_mask & USR_BUFFER_INIT)  ||
+        (copy_ctrl_mask & USR_BUFFER_SIZE)  ||
+        (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
+        (copy_ctrl_mask & VALIDATE_COPY_OP)) {
+        PrintHelpScreen();
+        exit(0);
+    }
+    return;
+  }
+
   std::cout << "ValidateInputFlags: This should not be happening" << std::endl;
   assert(false);
   return;
@@ -274,6 +290,11 @@ void RocmBandwidthTest::BuildBufferList() {
     if (req_copy_bidir_ == REQ_COPY_BIDIR) {
       size_list_.push_back(SIZE_LIST[idx]);
     }
+    
+    if ((req_concurrent_copy_bidir_ == REQ_CONCURRENT_COPY_BIDIR) ||
+        (req_concurrent_copy_unidir_ == REQ_CONCURRENT_COPY_UNIDIR)) {
+      size_list_.push_back(SIZE_LIST[idx]);
+    }
   }
 }
 
@@ -291,7 +312,7 @@ void RocmBandwidthTest::ParseArguments() {
   
   int opt;
   bool status;
-  while ((opt = getopt(usr_argc_, usr_argv_, "hqtclvaAb:i:s:d:r:w:m:")) != -1) {
+  while ((opt = getopt(usr_argc_, usr_argv_, "hqtclvaAb:i:s:d:r:w:m:k:K:")) != -1) {
     switch (opt) {
 
       // Print help screen
@@ -353,6 +374,22 @@ void RocmBandwidthTest::ParseArguments() {
         if (status) {
           num_primary_flags++;
           req_copy_bidir_ = REQ_COPY_BIDIR;
+          break;
+        }
+        print_help = true;
+        break;
+
+      // Collect list of agents involved in concurrent copy operation
+      case 'k':
+      case 'K':
+        status = ParseOptionValue(optarg, bidir_list_);
+        if ((status) && ((bidir_list_.size() % 2) == 0)) {
+          num_primary_flags++;
+          if (opt == 'K') {
+            req_concurrent_copy_bidir_ = REQ_CONCURRENT_COPY_BIDIR;
+          } else {
+            req_concurrent_copy_unidir_ = REQ_CONCURRENT_COPY_UNIDIR;
+          }
           break;
         }
         print_help = true;
@@ -420,7 +457,7 @@ void RocmBandwidthTest::ParseArguments() {
         std::cout << "Argument is illegal or needs value: " << '?' << std::endl;
         if ((optopt == 'b') || (optopt == 's') ||
             (optopt == 'd') || (optopt == 'm') || (optopt == 'i')) {
-          std::cout << "Error: Options -b -s -d and -m -i require argument" << std::endl;
+          std::cout << "Error: Options -b -s -d -m -i -k and -K require argument" << std::endl;
         }
         print_help = true;
         break;

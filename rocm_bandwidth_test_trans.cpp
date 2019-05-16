@@ -43,14 +43,22 @@
 #include "common.hpp"
 #include "rocm_bandwidth_test.hpp"
 
-bool RocmBandwidthTest::FindMirrorRequest(uint32_t src_idx, uint32_t dst_idx) {
+bool RocmBandwidthTest::FindMirrorRequest(bool reverse,
+                                          uint32_t src_idx, uint32_t dst_idx) {
 
   uint32_t size = trans_list_.size();
   for (uint32_t idx = 0; idx < size; idx++) {
     async_trans_t& mirror = trans_list_[idx];
-    if ((src_idx == mirror.copy.dst_idx_) &&
-        (dst_idx == mirror.copy.src_idx_)) {
-      return true;
+    if(reverse) {
+      if ((src_idx == mirror.copy.dst_idx_) &&
+          (dst_idx == mirror.copy.src_idx_)) {
+        return true;
+      }
+    } else {
+      if ((src_idx == mirror.copy.src_idx_) &&
+          (dst_idx == mirror.copy.dst_idx_)) {
+        return true;
+      }
     }
   }
 
@@ -135,7 +143,6 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
                                vector<size_t>& src_list,
                                vector<size_t>& dst_list) {
 
-  // bool filter_out;
   uint32_t src_size = src_list.size();
   uint32_t dst_size = dst_list.size();
 
@@ -172,7 +179,7 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
           continue;
         }
 
-        bool mirror = FindMirrorRequest(src_idx, dst_idx);
+        bool mirror = FindMirrorRequest(true, src_idx, dst_idx);
         if (mirror) {
           continue;
         }
@@ -226,6 +233,94 @@ bool RocmBandwidthTest::BuildCopyTrans(uint32_t req_type,
   return true;
 }
 
+bool RocmBandwidthTest::BuildConcurrentCopyTrans(uint32_t req_type,
+                                                 vector<size_t>& dev_list) {
+
+  uint32_t size = dev_list.size();
+  for (uint32_t idx = 0; idx < size; idx += 2) {
+
+    // Retrieve Roc runtime handles for Src memory pool and agents
+    uint32_t src_idx = dev_list[idx];
+    uint32_t src_dev_idx = pool_list_[src_idx].agent_index_;
+    hsa_amd_memory_pool_t src_pool = pool_list_[src_idx].pool_;
+    hsa_device_type_t src_dev_type = agent_list_[src_dev_idx].device_type_;
+
+    // Retrieve Roc runtime handles for Dst memory pool and agents
+    uint32_t dst_idx = dev_list[idx + 1];
+    uint32_t dst_dev_idx = pool_list_[dst_idx].agent_index_;
+    hsa_amd_memory_pool_t dst_pool = pool_list_[dst_idx].pool_;
+    hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
+
+    // Filter out transactions that involve only Cpu agents/devices
+    // without regard to type of request, default run, partial or full
+    // unidirectional or bidirectional copies
+    if ((src_dev_type == HSA_DEVICE_TYPE_CPU) &&
+        (dst_dev_type == HSA_DEVICE_TYPE_CPU)) {
+      continue;
+    }
+    
+    // Determine there is no duplicate
+    bool mirror = false;
+    mirror = FindMirrorRequest(false, src_idx, dst_idx);
+    if (mirror) {
+      continue;
+    }
+
+    // Filter out transactions that involve only same GPU as both
+    // Src and Dst device if the request is bidirectional copy that
+    // is either partial or full
+    if (req_type == REQ_CONCURRENT_COPY_BIDIR) {
+      if (src_dev_idx == dst_dev_idx) {
+        continue;
+      }
+
+      mirror = FindMirrorRequest(true, src_idx, dst_idx);
+      if (mirror) {
+        continue;
+      }
+    }
+
+    // Determine if accessibility to dst pool for src agent is not denied
+    uint32_t path_exists = access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx];
+    if (path_exists == 0) {
+      PrintCopyAccessError(src_idx, dst_idx);
+      return false;
+    }
+
+    // For bidirectional copies determine both access paths are valid
+    // Both paths are valid when one of the devices is a CPU. This is
+    // not true when both of the devices are GPU's.
+    if (req_type == REQ_CONCURRENT_COPY_BIDIR) {
+      path_exists = access_matrix_[(dst_dev_idx * agent_index_) + src_dev_idx];
+      if (path_exists == 0) {
+        PrintCopyAccessError(dst_idx, src_idx);
+        return false;
+      }
+    }
+
+    // Update the list of agents active in any copy operation
+    if (active_agents_list_ == NULL) {
+      active_agents_list_  = new uint32_t[agent_index_]();
+    }
+    active_agents_list_[src_dev_idx] = 1;
+    active_agents_list_[dst_dev_idx] = 1;
+
+    // Agents have access, build an instance of transaction
+    // and add it to the list of transactions
+    async_trans_t trans(req_type);
+    trans.copy.src_idx_ = src_idx;
+    trans.copy.dst_idx_ = dst_idx;
+    trans.copy.src_pool_ = src_pool;
+    trans.copy.dst_pool_ = dst_pool;
+    trans.copy.bidir_ = (req_type == REQ_CONCURRENT_COPY_BIDIR);
+    trans.copy.uses_gpu_ = ((src_dev_type == HSA_DEVICE_TYPE_GPU) ||
+                            (dst_dev_type == HSA_DEVICE_TYPE_GPU));
+    trans_list_.push_back(trans);
+  }
+
+  return true;
+}
+
 bool RocmBandwidthTest::BuildBidirCopyTrans() {
   return BuildCopyTrans(REQ_COPY_BIDIR, bidir_list_, bidir_list_);
 }
@@ -246,61 +341,56 @@ bool RocmBandwidthTest::BuildAllPoolsUnidirCopyTrans() {
 bool RocmBandwidthTest::BuildTransList() {
 
   // Build list of Read transactions per user request
-  bool status = false;
   if (req_read_ == REQ_READ) {
-    status = BuildReadTrans();
-    if (status == false) {
-      return status;
-    }
+    return BuildReadTrans();
   }
 
   // Build list of Write transactions per user request
-  status = false;
   if (req_write_ == REQ_WRITE) {
-    status = BuildWriteTrans();
-    if (status == false) {
-      return status;
-    }
+    return BuildWriteTrans();
   }
 
   // Build list of Bidirectional Copy transactions per user request
-  status = false;
   if (req_copy_bidir_ == REQ_COPY_BIDIR) {
-    status = BuildBidirCopyTrans();
-    if (status == false) {
-      return status;
-    }
+    return BuildBidirCopyTrans();
   }
 
   // Build list of Unidirectional Copy transactions per user request
-  status = false;
   if (req_copy_unidir_ == REQ_COPY_UNIDIR) {
-    status = BuildUnidirCopyTrans();
-    if (status == false) {
-      return status;
-    }
+    return BuildUnidirCopyTrans();
   }
 
   // Build list of All Bidir Copy transactions per user request
-  status = false;
   if (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR) {
-    status = BuildAllPoolsBidirCopyTrans();
-    if (status == false) {
-      return status;
-    }
+    return BuildAllPoolsBidirCopyTrans();
   }
 
   // Build list of All Unidir Copy transactions per user request
-  status = false;
   if (req_copy_all_unidir_ == REQ_COPY_ALL_UNIDIR) {
-    status = BuildAllPoolsUnidirCopyTrans();
-    if (status == false) {
-      return status;
-    }
+    return BuildAllPoolsUnidirCopyTrans();
+  }
+
+  // Build list of Bidir Concurrent Copy transactions per user request
+  if (req_concurrent_copy_bidir_ == REQ_CONCURRENT_COPY_BIDIR) {
+    return BuildConcurrentCopyTrans(req_concurrent_copy_bidir_, bidir_list_);
+  }
+
+  // Build list of Unidir Concurrent Copy transactions per user request
+  if (req_concurrent_copy_unidir_ == REQ_CONCURRENT_COPY_UNIDIR) {
+    return BuildConcurrentCopyTrans(req_concurrent_copy_unidir_, bidir_list_);
   }
 
   // All of the transaction are built up
   return true;
+}
+
+void RocmBandwidthTest::ComputeCopyTime(std::vector<async_trans_t>& trans_list) {
+
+  uint32_t trans_cnt = trans_list.size();
+  for (uint32_t idx = 0; idx < trans_cnt; idx++) {
+    async_trans_t& trans = trans_list[idx];
+    ComputeCopyTime(trans);
+  }
 }
 
 void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
