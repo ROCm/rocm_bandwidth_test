@@ -124,6 +124,11 @@ double RocmBandwidthTest::GetMinTime(std::vector<double>& vec) {
 
 double RocmBandwidthTest::GetMeanTime(std::vector<double>& vec) {
 
+  // In validation mode we run only one iteration
+  if (validate_) {
+    return vec.at(0);
+  }
+
   std::sort(vec.begin(), vec.end());
   vec.erase(vec.begin());
   vec.erase(vec.begin(), vec.begin() + num_iteration_ * 0.1);
