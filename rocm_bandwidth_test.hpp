@@ -517,7 +517,7 @@ class RocmBandwidthTest : public BaseTest {
 
   // Determines if user has requested validation
   bool validate_;
-  uint8_t init_val_;
+  long double init_val_;
 
   // Handles to buffer used to initialize and validate
   void* init_src_;

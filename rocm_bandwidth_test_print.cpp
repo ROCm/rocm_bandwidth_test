@@ -59,7 +59,7 @@ void RocmBandwidthTest::PrintHelpScreen() {
   std::cout << "\t -v    Run the test in validation mode" << std::endl;
   std::cout << "\t -l    Run test to collect Latency data" << std::endl;
   std::cout << "\t -c    Time the operation using CPU Timers" << std::endl;
-  std::cout << "\t -i    Initialize copy buffer with specified byte pattern" << std::endl;
+  std::cout << "\t -i    Initialize copy buffer with specified 'long double' pattern" << std::endl;
   std::cout << "\t -t    Prints system topology and allocatable memory info" << std::endl;
   std::cout << "\t -m    List of buffer sizes to use, specified in Megabytes" << std::endl;
   std::cout << "\t -b    List devices to use in bidirectional copy operations" << std::endl;

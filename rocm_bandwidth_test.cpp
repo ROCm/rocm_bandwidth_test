@@ -48,6 +48,7 @@
 #include <algorithm>
 #include <unistd.h>
 #include <cctype>
+#include <cmath>
 #include <sstream>
 #include <limits>
 
@@ -105,7 +106,11 @@ void RocmBandwidthTest::InitializeSrcBuffer(size_t size, void* buf_cpy,
   if (init_src_ == NULL) {
     err_ = hsa_amd_memory_pool_allocate(sys_pool_, size, 0, (void**)&init_src_);
     ErrorCheck(err_);
-    memset(init_src_, init_val_, size);
+    long double* src_buf = (long double*) init_src_;
+    uint32_t count = (size / sizeof(long double));
+    for (uint32_t idx = 0; idx < count; idx++) {
+      src_buf[idx] = (init_) ? init_val_ : sin(idx);
+    }
     err_ = hsa_signal_create(0, 0, NULL, &init_signal_);
     ErrorCheck(err_);
   }
@@ -136,7 +141,7 @@ bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, voi
   }
 
   // If Copy device is a Gpu setup buffer access
-  memset(validate_dst_, ~init_val_, curr_size);
+  memset(validate_dst_, ~(0x23), curr_size);
   hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
   if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(cpy_agent, validate_dst_);
@@ -216,6 +221,9 @@ void RocmBandwidthTest::AllocateConcurrentCopyResources(bool bidir,
     dev_list.push_back(dst_dev);
     dev_idx_list.push_back(src_dev_idx);
     dev_idx_list.push_back(dst_dev_idx);
+  
+    // Initialize source buffers with data that could be verified
+    InitializeSrcBuffer(max_size, buf_src, src_dev_idx, src_dev);
     
     // For bidirectional copies allocate buffers
     // and signal for reverse direction as well
@@ -237,6 +245,9 @@ void RocmBandwidthTest::AllocateConcurrentCopyResources(bool bidir,
       dev_list.push_back(src_dev);
       dev_idx_list.push_back(dst_dev_idx);
       dev_idx_list.push_back(src_dev_idx);
+    
+      // Initialize source buffers with data that could be verified
+      InitializeSrcBuffer(max_size, buf_src, dst_dev_idx, dst_dev);
     }
   }
 }
@@ -526,14 +537,11 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
   }
 
   // Initialize source buffers with data that could be verified
-  if ((init_) || (validate_)) {
-    InitializeSrcBuffer(max_size, buf_src_fwd,
-                        src_dev_idx_fwd, src_agent_fwd);
-
-    if (bidir) {
-      InitializeSrcBuffer(max_size, buf_src_rev,
-                          src_dev_idx_rev, src_agent_rev);
-    }
+  InitializeSrcBuffer(max_size, buf_src_fwd,
+                      src_dev_idx_fwd, src_agent_fwd);
+  if (bidir) {
+    InitializeSrcBuffer(max_size, buf_src_rev,
+                        src_dev_idx_rev, src_agent_rev);
   }
 
   // Setup access to destination buffers for
@@ -760,15 +768,15 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   validate_ = false;
   print_cpu_time_ = false;
   
-  // Set initial value to 0x23 in case
+  // Set initial value to 11.231926 in case
   // user does not have a preference
-  init_val_ = 0x23;
+  init_val_ = 11.231926;
   init_src_ = NULL;
   validate_dst_ = NULL;
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 2;
+  version_.minor_id = 3;
   version_.step_id = 0;
   version_.reserved = 0;
 
@@ -794,12 +802,14 @@ RocmBandwidthTest::~RocmBandwidthTest() {
   delete link_type_matrix_;
   delete link_weight_matrix_;
   delete active_agents_list_;
-  if (init_) {
+
+  if (init_src_ != NULL) {
     hsa_signal_destroy(init_signal_);
     hsa_amd_memory_pool_free(init_src_);
-    if (validate_) {
-      hsa_amd_memory_pool_free(validate_dst_);
-    }
+  }
+
+  if (validate_) {
+    hsa_amd_memory_pool_free(validate_dst_);
   }
 }
 
