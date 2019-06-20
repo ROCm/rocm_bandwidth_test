@@ -46,15 +46,41 @@
 #include <assert.h>
 #include <algorithm>
 #include <sstream>
+#include <iomanip>
 #include <unistd.h>
+//#include <strings.h>
 
-// Parse option value string. The string has one decimal
-// value as in example: -i 0x33
-static bool ParseInitValue(char* value_str, uint8_t&value) {
+// Parse option value string. The string has to be either
+// sin or cos literal
+// value as in example: -I sin or -I cos
+/*
+static bool ParseTrigValue(char* value_str, uint32_t&value) {
  
   // Capture the option value string
-  uint32_t value_read = strtoul(value_str, NULL, 0);
-  return ((value = value_read) && (value_read > 255)) ? false : true;
+  std::cout << "Value of Trig: " << value_str << std::endl;
+  int32_t cmp = strncasecmp("sin", value_str, 3);
+  if (cmp == 0) {
+    value = 1;
+    return true;
+  }
+
+  cmp = strncasecmp("cos", value_str, 3);
+  if (cmp == 0) {
+    value = 2;
+    return true;
+  }
+  
+  return false;
+}
+*/
+
+// Parse option value string. The string has one decimal
+// value as in example: -i 11.231926
+static bool ParseInitValue(char* value_str, long double&value) {
+ 
+  // Capture the option value string
+  value = strtold(value_str, NULL);
+  return true;
 }
 
 // Parse option value string. The string has one more decimal
@@ -456,7 +482,8 @@ void RocmBandwidthTest::ParseArguments() {
       case '?':
         std::cout << "Argument is illegal or needs value: " << '?' << std::endl;
         if ((optopt == 'b') || (optopt == 's') ||
-            (optopt == 'd') || (optopt == 'm') || (optopt == 'i')) {
+            (optopt == 'd') || (optopt == 'm') ||
+            (optopt == 'i') || (false)) {
           std::cout << "Error: Options -b -s -d -m -i -k and -K require argument" << std::endl;
         }
         print_help = true;
