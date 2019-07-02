@@ -705,6 +705,16 @@ void RocmBandwidthTest::Run() {
 }
 
 void RocmBandwidthTest::Close() {
+
+  if (init_src_ != NULL) {
+    hsa_signal_destroy(init_signal_);
+    hsa_amd_memory_pool_free(init_src_);
+  }
+
+  if (validate_) {
+    hsa_amd_memory_pool_free(validate_dst_);
+  }
+
   hsa_status_t status = hsa_shut_down();
   ErrorCheck(status);
   return;
@@ -802,15 +812,6 @@ RocmBandwidthTest::~RocmBandwidthTest() {
   delete link_type_matrix_;
   delete link_weight_matrix_;
   delete active_agents_list_;
-
-  if (init_src_ != NULL) {
-    hsa_signal_destroy(init_signal_);
-    hsa_amd_memory_pool_free(init_src_);
-  }
-
-  if (validate_) {
-    hsa_amd_memory_pool_free(validate_dst_);
-  }
 }
 
 std::string RocmBandwidthTest::GetVersion() const {
