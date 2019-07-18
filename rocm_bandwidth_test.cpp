@@ -761,6 +761,8 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   
   req_read_ = REQ_INVALID;
   req_write_ = REQ_INVALID;
+  req_version_ = REQ_INVALID;
+  req_topology_ = REQ_INVALID;
   req_copy_bidir_ = REQ_INVALID;
   req_copy_unidir_ = REQ_INVALID;
   req_copy_all_bidir_ = REQ_INVALID;
