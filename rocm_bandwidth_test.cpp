@@ -789,7 +789,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 3;
-  version_.step_id = 0;
+  version_.step_id = 1;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
