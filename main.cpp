@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
   if (argc == 1) {
     argc++;
     argv[1] = (char*)"-a";
-    setenv("ROCM_BW_DEFAULT_RUN", "false", true);
+    setenv("ROCM_BW_DEFAULT_RUN", "true", true);
   }
 
   // Create the Bandwidth test object
