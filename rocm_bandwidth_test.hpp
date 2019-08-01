@@ -394,6 +394,7 @@ class RocmBandwidthTest : public BaseTest {
 
   RocmBandwidthVersion version_;
   void PrintVersion() const;
+  void PrintLaunchCmd() const;
   std::string GetVersion() const;
 
   // Used to help count agent_info
