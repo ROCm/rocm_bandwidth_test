@@ -204,6 +204,7 @@ std::string GetValueAsString(uint32_t key, uint32_t value) {
   }
   std::cout << "An illegal key to get value for" << std::endl;
   assert(false);
+  return "";
 }
 
 void RocmBandwidthTest::PrintLinkPropsMatrix(uint32_t key) const {
