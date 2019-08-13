@@ -170,7 +170,7 @@ include(utils)
 # value track what is used in the test source. The code from utils
 # module will parse the string into major, minor and patch sub-fields
 #
-get_version("1.0.0")
+get_version()
 
 # Bind the Major, Minor and Patch values
 set(BUILD_VERSION_MAJOR ${VERSION_MAJOR})
@@ -209,7 +209,11 @@ set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Test to measure PciE bandwidth on ROCm platforms")
 
 # Debian package specific variables
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
+
+# RPM package specific variables
+set(CPACK_RPM_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
 
 # RPM package specific variables
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
