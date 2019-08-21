@@ -488,7 +488,8 @@ class RocmBandwidthTest : public BaseTest {
   
   // Env key to determine if Fine-grained or
   // Coarse-grained pool should be filtered out
-  char* skip_fine_grain_;
+  char* skip_cpu_fine_grain_;
+  char* skip_gpu_coarse_grain_;
   
   // Env key to determine if the run should block
   // or actively wait on completion signal

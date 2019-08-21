@@ -130,7 +130,7 @@ bool RocmBandwidthTest::FilterCpuPool(uint32_t req_type,
 
   // If env to skip fine grain is NULL it means
   // we should filter out coarse-grain pools
-  if (skip_fine_grain_ == NULL) {
+  if (skip_cpu_fine_grain_ == NULL) {
     return (fine_grained == false);
   }
 

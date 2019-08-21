@@ -106,10 +106,11 @@ hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data) {
   }
 
   // Consult user request and add either fine-grained or
-  // coarse-grained memory pools if agent is CPU
+  // coarse-grained memory pools if agent is CPU. Default
+  // is to skip coarse-grained memory pools
   agent_info_t& agent_info = asyncDrvr->agent_list_.back();
   if (agent_info.device_type_ == HSA_DEVICE_TYPE_CPU) {
-    if (asyncDrvr->skip_fine_grain_ != NULL) {
+    if (asyncDrvr->skip_cpu_fine_grain_ != NULL) {
       if (is_fine_grained == true) {
         return HSA_STATUS_SUCCESS;
       }
@@ -119,9 +120,21 @@ hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data) {
       }
     }
   }
-  // hsa_device_type_t device_type;
-  // status = hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &device_type);
-  // ErrorCheck(status);
+
+  // Consult user request and add either fine-grained or
+  // coarse-grained memory pools if agent is GPU. Default
+  // is to skip fine-grained memory pools
+  if (agent_info.device_type_ == HSA_DEVICE_TYPE_GPU) {
+    if (asyncDrvr->skip_gpu_coarse_grain_ != NULL) {
+      if (is_fine_grained == false) {
+        return HSA_STATUS_SUCCESS;
+      }
+    } else {
+      if (is_fine_grained == true) {
+        return HSA_STATUS_SUCCESS;
+      }
+    }
+  }
 
   // Create an instance of agent_pool_info and add it to the list
   pool_info_t pool_info(agent, asyncDrvr->agent_index_, pool,
@@ -231,7 +244,7 @@ void RocmBandwidthTest::PopulateAccessMatrix() {
       uint32_t path;
       path = (access == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED) ? 0 : 1;
       direct_access_matrix_[(src_dev_idx * agent_index_) + dst_dev_idx] = path;
-
+      
       if ((src_dev_type == HSA_DEVICE_TYPE_CPU) &&
           (dst_dev_type == HSA_DEVICE_TYPE_GPU) &&
           (access == HSA_AMD_MEMORY_POOL_ACCESS_NEVER_ALLOWED)) {
