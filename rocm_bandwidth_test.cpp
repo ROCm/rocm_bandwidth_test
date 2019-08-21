@@ -789,13 +789,14 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 3;
-  version_.step_id = 3;
+  version_.step_id = 4;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
   bw_blocking_run_ = getenv("ROCR_BW_RUN_BLOCKING");
-  skip_fine_grain_ = getenv("ROCM_SKIP_FINE_GRAINED_POOL");
+  skip_cpu_fine_grain_ = getenv("ROCM_SKIP_CPU_FINE_GRAINED_POOL");
+  skip_gpu_coarse_grain_ = getenv("ROCM_SKIP_GPU_COARSE_GRAINED_POOL");
 
   if (bw_iter_cnt_ != NULL) {
     int32_t num = atoi(bw_iter_cnt_);

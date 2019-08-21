@@ -99,8 +99,11 @@ function( parse_version VERSION_STRING )
   endif ()
 
   # Add Build Info from Jenkins
-  set ( ROCM_BUILD_ID "DevBld" CACHE STRING "Jenkins Build Id" )
-   
+  set ( ROCM_BUILD_ID "DevBld" CACHE STRING "Local Build Id" FORCE )
+  if(DEFINED ENV{ROCM_BUILD_ID})
+    set ( ROCM_BUILD_ID $ENV{ROCM_BUILD_ID} CACHE STRING "Jenkins Build Id" FORCE )
+  endif()
+
   # Update Version Patch to include Number of Commits and hash of HEAD
   set ( VERSION_PATCH "${PATCH}.${COMMIT_CNT}-${ROCM_BUILD_ID}-${COMMIT_HASH}" PARENT_SCOPE )
 
