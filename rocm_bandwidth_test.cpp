@@ -92,10 +92,12 @@ void RocmBandwidthTest::AcquirePoolAcceses(uint32_t src_dev_idx,
   hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
   if (src_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(src_agent, dst);
-  } else if (dst_dev_type == HSA_DEVICE_TYPE_GPU) {
+  }
+
+  if (dst_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(dst_agent, src);
   }
-  
+
   return;
 }
   
@@ -789,7 +791,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 3;
-  version_.step_id = 4;
+  version_.step_id = 5;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
