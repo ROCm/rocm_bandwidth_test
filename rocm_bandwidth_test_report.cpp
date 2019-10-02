@@ -318,7 +318,7 @@ void RocmBandwidthTest::PrintPerfMatrix(bool validate, bool peak, double* perf_m
       if (validate) {
         if (value == 0) {
           std::cout << "N/A";
-        } else if (value < 1) {
+        } else if (value == VALIDATE_COPY_OP_FAILURE) {
           std::cout << "FAIL";
         } else {
           std::cout << "PASS";

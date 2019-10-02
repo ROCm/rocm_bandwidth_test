@@ -117,19 +117,20 @@ void RocmBandwidthTest::InitializeSrcBuffer(size_t size, void* buf_cpy,
     ErrorCheck(err_);
   }
 
-  // If Copy device is a Gpu setup buffer access
+  // If copying agent is a CPU, use memcpy to initialize copy buffer
   hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
-  if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
-    AcquireAccess(cpy_agent, init_src_);
-    hsa_signal_store_relaxed(init_signal_, 1);
-    copy_buffer(buf_cpy, cpy_agent,
-                init_src_, cpu_agent_,
-                size, init_signal_);
+  if (cpy_dev_type == HSA_DEVICE_TYPE_CPU) {
+    memcpy(buf_cpy, init_src_, size);
     return;
   }
 
-  // Copy initialization buffer into copy buffer
-  memcpy(buf_cpy, init_src_, size);
+  // Copying device is a Gpu, setup buffer access
+  // before copying initialization buffer
+  AcquireAccess(cpy_agent, init_src_);
+  hsa_signal_store_relaxed(init_signal_, 1);
+  copy_buffer(buf_cpy, cpy_agent,
+              init_src_, cpu_agent_,
+              size, init_signal_);
   return;
 }
   
@@ -158,7 +159,7 @@ bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, voi
     memcpy(validate_dst_, buf_cpy, curr_size);
   }
 
-  // Copy initialization buffer into copy buffer
+  // Compare initialization buffer with validation buffer
   err_ = (hsa_status_t)memcmp(init_src_, validate_dst_, curr_size);
   if (err_ != HSA_STATUS_SUCCESS) {
     exit_value_ = err_;
@@ -637,16 +638,17 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       }
     }
 
-    // Get Cpu min copy time
+    // Get Cpu min and mean times for copy
+    // Push them into the Cpu time list
     trans.cpu_min_time_.push_back(GetMinTime(cpu_time));
-    // Get Cpu mean copy time and store to the array
     trans.cpu_avg_time_.push_back(GetMeanTime(cpu_time));
 
     if (print_cpu_time_ == false) {
       if (trans.copy.uses_gpu_) {
         // Get Gpu min and mean copy times
-        double min_time = (verify) ? GetMinTime(gpu_time) : std::numeric_limits<double>::max();
-        double mean_time = (verify) ? GetMeanTime(gpu_time) : std::numeric_limits<double>::max();
+        // Push them into the Gpu time list
+        double min_time = (verify) ? GetMinTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
+        double mean_time = (verify) ? GetMeanTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
         trans.gpu_min_time_.push_back(min_time);
         trans.gpu_avg_time_.push_back(mean_time);
       }
@@ -791,7 +793,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 3;
-  version_.step_id = 5;
+  version_.step_id = 6;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
