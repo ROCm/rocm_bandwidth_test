@@ -394,7 +394,7 @@ void RocmBandwidthTest::ComputeCopyTime(std::vector<async_trans_t>& trans_list) 
 }
 
 void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
-
+  
   // Get the frequency of Gpu Timestamping
   uint64_t sys_freq = 0;
   hsa_system_get_info(HSA_SYSTEM_INFO_TIMESTAMP_FREQUENCY, &sys_freq);
@@ -426,12 +426,12 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
       avg_bandwidth = (double)data_size / avg_time / 1000 / 1000 / 1000;
       peak_bandwidth = (double)data_size / min_time / 1000 / 1000 / 1000;
     } else {
-      if (print_cpu_time_ == false) {
-        avg_time = trans.gpu_avg_time_[idx] / sys_freq;
-        min_time = trans.gpu_min_time_[idx] / sys_freq;
-      } else {
+      if (print_cpu_time_) {
         avg_time = trans.cpu_avg_time_[idx];
         min_time = trans.cpu_min_time_[idx];
+      } else {
+        avg_time = trans.gpu_avg_time_[idx] / sys_freq;
+        min_time = trans.gpu_min_time_[idx] / sys_freq;
       }
       avg_bandwidth = (double)data_size / avg_time / 1000 / 1000 / 1000;
       peak_bandwidth = (double)data_size / min_time / 1000 / 1000 / 1000;
@@ -439,6 +439,23 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
 
     trans.min_time_.push_back(min_time);
     trans.avg_time_.push_back(avg_time);
+
+    // Check validation failures as that signal is
+    // captured via Min and Avg time values. If there
+    // is a failure propagate that value as computed
+    // bandwidth
+    if (validate_) {
+      avg_time = trans.gpu_avg_time_[idx];
+      min_time = trans.gpu_min_time_[idx];
+      if ((avg_time == VALIDATE_COPY_OP_FAILURE) &&
+          (min_time == VALIDATE_COPY_OP_FAILURE)) {
+        trans.avg_bandwidth_.push_back(avg_time);
+        trans.peak_bandwidth_.push_back(min_time);
+        continue;  
+      }
+    }
+
+    // Update computed bandwidth for the transaction
     trans.avg_bandwidth_.push_back(avg_bandwidth);
     trans.peak_bandwidth_.push_back(peak_bandwidth);
   }
