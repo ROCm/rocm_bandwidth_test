@@ -147,9 +147,7 @@ void RocmBandwidthTest::ValidateCopyUnidirFlags(uint32_t copy_mask,
   // It is illegal to specify Latency and another
   // secondary flag that affects a copy operation
   if ((copy_ctrl_mask & DEV_COPY_LATENCY) &&
-       ((copy_ctrl_mask & USR_BUFFER_INIT) ||
-        (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
-        (copy_ctrl_mask & VALIDATE_COPY_OP))) {
+      (copy_ctrl_mask & VALIDATE_COPY_OP)) {
     PrintHelpScreen();
     exit(0);
   }
