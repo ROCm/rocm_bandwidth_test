@@ -52,6 +52,9 @@
 #include <sstream>
 #include <limits>
 
+// Initialize the variable used to capture validation failure
+const double RocmBandwidthTest::VALIDATE_COPY_OP_FAILURE = std::numeric_limits<double>::max();
+
 // The values are in megabytes at allocation time
 const size_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
                                 2 * 1024, 4 * 1024, 8 * 1024,
@@ -793,7 +796,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 3;
-  version_.step_id = 6;
+  version_.step_id = 7;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");

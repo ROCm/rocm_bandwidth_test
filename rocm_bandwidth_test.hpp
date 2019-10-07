@@ -474,7 +474,7 @@ class RocmBandwidthTest : public BaseTest {
   static const uint32_t LINK_PROP_ACCESS = 0x03;
   
   // Encodes validation failure
-  static const double VALIDATE_COPY_OP_FAILURE = 0xFFFFFFFF.FFFFFFFFp0;
+  static const double VALIDATE_COPY_OP_FAILURE;
 
   // List used to store transactions per user request
   vector<async_trans_t> trans_list_;
