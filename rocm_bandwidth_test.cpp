@@ -641,17 +641,25 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       }
     }
 
-    // Get Cpu min and mean times for copy
-    // Push them into the Cpu time list
-    trans.cpu_min_time_.push_back(GetMinTime(cpu_time));
-    trans.cpu_avg_time_.push_back(GetMeanTime(cpu_time));
+    // Collecting Cpu time. Capture verify failures if any
+    // Get min and mean copy times and collect them into Cpu
+    // time list
+    double min_time = 0;
+    double mean_time = 0;
+    if (print_cpu_time_) {
+      min_time = (verify) ? GetMinTime(cpu_time) : VALIDATE_COPY_OP_FAILURE;
+      mean_time = (verify) ? GetMeanTime(cpu_time) : VALIDATE_COPY_OP_FAILURE;
+      trans.cpu_min_time_.push_back(min_time);
+      trans.cpu_avg_time_.push_back(mean_time);
+    }
 
+    // Collecting Gpu time. Capture verify failures if any
+    // Get min and mean copy times and collect them into Gpu
+    // time list
     if (print_cpu_time_ == false) {
       if (trans.copy.uses_gpu_) {
-        // Get Gpu min and mean copy times
-        // Push them into the Gpu time list
-        double min_time = (verify) ? GetMinTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
-        double mean_time = (verify) ? GetMeanTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
+        min_time = (verify) ? GetMinTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
+        mean_time = (verify) ? GetMeanTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
         trans.gpu_min_time_.push_back(min_time);
         trans.gpu_avg_time_.push_back(mean_time);
       }
@@ -796,7 +804,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 3;
-  version_.step_id = 7;
+  version_.step_id = 9;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
