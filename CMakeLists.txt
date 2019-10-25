@@ -195,6 +195,7 @@ add_executable(${TEST_NAME} ${Src})
 target_link_libraries(${TEST_NAME} ${ROC_THUNK_NAME})
 target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET})
 target_link_libraries(${TEST_NAME} c stdc++ dl pthread rt)
+set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}" )
 
 # Update linker flags to include RPATH
 # Add --enable-new-dtags to generate DT_RUNPATH
