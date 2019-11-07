@@ -104,7 +104,7 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
 endif()
 
 # Specify name of project to build, install and package
-set(PROJECT_NAME "rocm_bandwidth_test")
+set(PROJECT_NAME "rocm-bandwidth-test")
 set(TEST_NAME "${PROJECT_NAME}")
 project(${PROJECT_NAME})
 
@@ -195,6 +195,12 @@ add_executable(${TEST_NAME} ${Src})
 target_link_libraries(${TEST_NAME} ${ROC_THUNK_NAME})
 target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET})
 target_link_libraries(${TEST_NAME} c stdc++ dl pthread rt)
+
+# Update linker flags to include RPATH
+# Add --enable-new-dtags to generate DT_RUNPATH
+if( DEFINED ENV{ROCM_RPATH})
+   set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}" )
+endif()
 
 # Add install directives for rocm_bandwidth_test
 install(TARGETS ${TEST_NAME} RUNTIME DESTINATION bin)
