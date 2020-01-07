@@ -449,7 +449,10 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
     // 10^9 not 1024^3 to get size in GigaBytes
     // @note: For validation failures bandwidth
     // is encoded by VALIDATE_COPY_OP_FAILURE
-    if (verify_status == HSA_STATUS_SUCCESS) {
+    if (verify_status != HSA_STATUS_SUCCESS) {
+      avg_bandwidth = VALIDATE_COPY_OP_FAILURE;
+      peak_bandwidth = VALIDATE_COPY_OP_FAILURE;
+    } else {
       avg_bandwidth = (double)data_size / avg_time / 1000 / 1000 / 1000;
       peak_bandwidth = (double)data_size / min_time / 1000 / 1000 / 1000;
     }
