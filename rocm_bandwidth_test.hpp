@@ -168,13 +168,14 @@ typedef enum Request_Type {
   REQ_WRITE = 2,
   REQ_VERSION = 3,
   REQ_TOPOLOGY = 4,
-  REQ_COPY_BIDIR = 5,
-  REQ_COPY_UNIDIR = 6,
-  REQ_COPY_ALL_BIDIR = 7,
-  REQ_COPY_ALL_UNIDIR = 8,
-  REQ_CONCURRENT_COPY_BIDIR = 9,
-  REQ_CONCURRENT_COPY_UNIDIR = 10,
-  REQ_INVALID = 11,
+  REQ_LIST_DEVS = 5,
+  REQ_COPY_BIDIR = 6,
+  REQ_COPY_UNIDIR = 7,
+  REQ_COPY_ALL_BIDIR = 8,
+  REQ_COPY_ALL_UNIDIR = 9,
+  REQ_CONCURRENT_COPY_BIDIR = 10,
+  REQ_CONCURRENT_COPY_UNIDIR = 11,
+  REQ_INVALID = 12,
 
 } Request_Type;
 
@@ -446,6 +447,7 @@ class RocmBandwidthTest : public BaseTest {
   uint32_t req_write_;
   uint32_t req_version_;
   uint32_t req_topology_;
+  uint32_t req_list_devs_;
   uint32_t req_copy_bidir_;
   uint32_t req_copy_unidir_;
   uint32_t req_copy_all_bidir_;
