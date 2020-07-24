@@ -27,6 +27,12 @@ cmake_minimum_required(VERSION 2.8.0)
 #
 #
 
+# Specify name of project to build, install and package
+set(PROJECT_NAME "rocm-bandwidth-test")
+set(TEST_NAME "${PROJECT_NAME}")
+project(${PROJECT_NAME})
+
+
 # Build is not supported on Windows plaform
 if(WIN32)
   message("Windows platfom is not supported")
@@ -103,60 +109,12 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
 
-# Specify name of project to build, install and package
-set(PROJECT_NAME "rocm-bandwidth-test")
-set(TEST_NAME "${PROJECT_NAME}")
-project(${PROJECT_NAME})
+find_package(hsa-runtime64 REQUIRED )
+message( " hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
 
 # Set project requirements
-set(ROC_THUNK_NAME "hsakmt")
 set(CORE_RUNTIME_NAME "hsa-runtime")
 set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
-
-# Bind default root directory to look for ROCm artifacts
-# such as ROCr header and ROCr, ROCt libraries
-set(ROCM_ROOT /opt/rocm/ CACHE PATH "Root of ROCm")
-if(DEFINED ENV{CMAKE_PREFIX_PATH})
-  set(CMAKE_PREFIX_PATH $ENV{CMAKE_PREFIX_PATH})
-endif()
-if(CMAKE_PREFIX_PATH)
-  set(ROCM_ROOT ${CMAKE_PREFIX_PATH} CACHE PATH "Root of ROCm")
-endif()
-
-# Search for ROCr header file
-find_path(ROCR_HDR hsa/hsa.h PATHS ${ROCM_ROOT} PATH_SUFFIXES include )
-if (NOT ROCR_HDR)
-  message("Rocr Header hsa/hsa.h not found")
-  return()
-endif()
-
-# Add directories to look for header files to compile
-INCLUDE_DIRECTORIES(${ROCR_HDR})
-
-# Search for ROCr library file
-find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS ${ROCM_ROOT} PATH_SUFFIXES lib lib64)
-if (NOT ROCR_LIB)
-  message("Rocr Library ${CORE_RUNTIME_TARGET} not found")
-  return()
-endif()
-
-# Search for ROCr library file
-find_library(ROCT_LIB ${ROC_THUNK_NAME} PATHS ${ROCM_ROOT} PATH_SUFFIXES lib lib64)
-if (NOT ROCT_LIB)
-  message("Roct Library ${ROC_THUNK_NAME} not found")
-  return()
-endif()
-
-# Add ROCr library to be used in linking target
-add_library(${CORE_RUNTIME_TARGET} SHARED IMPORTED GLOBAL)
-set_target_properties(${CORE_RUNTIME_TARGET} PROPERTIES
-                      IMPORTED_LOCATION "${ROCR_LIB}"
-                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}")
-
-# Add ROCr library to be used in linking target
-add_library(${ROC_THUNK_NAME} SHARED IMPORTED GLOBAL)
-set_target_properties(${ROC_THUNK_NAME} PROPERTIES
-                      IMPORTED_LOCATION "${ROCT_LIB}")
 
 # Add cmake_modules to default module path if it is not
 # already set and include utils from cmake modules
@@ -192,9 +150,8 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
 
 # Build and link the test program
 add_executable(${TEST_NAME} ${Src})
-target_link_libraries(${TEST_NAME} ${ROC_THUNK_NAME})
-target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET})
-target_link_libraries(${TEST_NAME} c stdc++ dl pthread rt)
+target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
+target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 
 # Update linker flags to include RPATH
 # Add --enable-new-dtags to generate DT_RUNPATH
