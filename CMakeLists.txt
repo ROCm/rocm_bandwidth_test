@@ -109,7 +109,9 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
 
-find_package(hsa-runtime64 REQUIRED )
+find_package(hsa-runtime64 REQUIRED
+   PATHS  /opt/rocm
+  )
 message( " hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
 
 # Set project requirements
