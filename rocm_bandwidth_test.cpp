@@ -588,7 +588,7 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       }
 
       // Create a timer object and reset signals
-      PerfTimer timer;
+      PerfTimer timer(tscFreq);
       uint32_t index = timer.CreateTimer();
 
       // Start the timer and launch forward copy operation
@@ -803,8 +803,8 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 3;
-  version_.step_id = 11;
+  version_.minor_id = 4;
+  version_.step_id = 0;
   version_.reserved = 0;
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
@@ -820,6 +820,9 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
     }
     set_num_iteration(num);
   }
+
+  tscFreq = PerfTimer::MeasureTSCFreqHz();
+  //printf("TSC measure: %f \n", tscFreq);
 
   exit_value_ = 0;
 }

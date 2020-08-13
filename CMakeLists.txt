@@ -109,9 +109,15 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
 
-find_package(hsa-runtime64 REQUIRED
-   PATHS  /opt/rocm
+if (DEFINED ROCM_HOME)
+  find_package(hsa-runtime64 REQUIRED
+	  PATHS  ${ROCM_HOME}
   )
+else()
+  find_package(hsa-runtime64 REQUIRED
+    PATHS  /opt/rocm
+  )
+endif()
 message( " hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
 
 # Set project requirements
@@ -159,6 +165,10 @@ target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 # Add --enable-new-dtags to generate DT_RUNPATH
 if( DEFINED ENV{ROCM_RPATH})
    set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}" )
+endif()
+
+if (DEFINED ROCM_HOME)
+	set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,${ROCM_HOME}/hsa/lib:${ROCM_HOME}/lib64:${ROCM_HOME}/lib" )
 endif()
 
 # Add install directives for rocm_bandwidth_test

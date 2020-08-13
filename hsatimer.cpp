@@ -45,8 +45,10 @@
 #define NANOSECONDS_PER_SECOND 1000000000
 
 PerfTimer::PerfTimer() {
-  freq_in_100mhz = MeasureTSCFreqHz();
+  freq_in_100mhz = PerfTimer::MeasureTSCFreqHz();
 }
+
+PerfTimer::PerfTimer(double tscfreq) : freq_in_100mhz{tscfreq} {}
 
 PerfTimer::~PerfTimer() {
   while (!_timers.empty()) {
@@ -176,13 +178,13 @@ uint64_t PerfTimer::MeasureTSCFreqHz() {
   unsigned int unused;
   uint64_t tscTicksEnd;
 
-  uint64_t coarseBeginUs = CoarseTimestampUs();
+  uint64_t coarseBeginUs = PerfTimer::CoarseTimestampUs();
   uint64_t tscTicksBegin = __rdtscp(&unused);
   do {
     tscTicksEnd = __rdtscp(&unused);
   } while (tscTicksEnd - tscTicksBegin < 1000000000);
 
-  uint64_t coarseEndUs = CoarseTimestampUs();
+  uint64_t coarseEndUs = PerfTimer::CoarseTimestampUs();
 
   // Compute the TSC frequency and round to nearest 100MHz.
   uint64_t coarseIntervalNs = (coarseEndUs - coarseBeginUs) * 1000;

@@ -81,13 +81,14 @@ class PerfTimer {
  public:
 
   PerfTimer();
+  PerfTimer(double);
   ~PerfTimer();
 
  private:
 
   // AMD timing method
-  uint64_t CoarseTimestampUs();
-  uint64_t MeasureTSCFreqHz();
+  // uint64_t CoarseTimestampUs();
+  // uint64_t MeasureTSCFreqHz();
 
   // General Linux timing method
 
@@ -97,6 +98,8 @@ class PerfTimer {
   int StartTimer(int index);
   int StopTimer(int index);
   void ResetTimer(int index);
+  static uint64_t MeasureTSCFreqHz();
+  static uint64_t CoarseTimestampUs();
 
  public:
  
