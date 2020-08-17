@@ -109,12 +109,8 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
 
-find_package(hsa-runtime64 REQUIRED
-   PATHS  /opt/rocm
-  )
-message( " hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
-
 # Set project requirements
+set(ROC_THUNK_NAME "hsakmt")
 set(CORE_RUNTIME_NAME "hsa-runtime")
 set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
 
@@ -124,6 +120,23 @@ if(NOT DEFINED CMAKE_MODULE_PATH)
   set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 endif()
 include(utils)
+
+#making find_package(has-runtime64 Optional as it can fail when building old hsa
+#When find_package fails, then using old method of find_libraries for
+#searching the required libs for building RBT
+find_package(hsa-runtime64
+   PATHS  /opt/rocm )
+if(${hsa-runtime64_FOUND})
+  message( " hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
+else()
+  message(" hsa-runtime64 NOT found Resolving to OLD Way" )
+  find_path(ROCR_HDR hsa.h PATHS "/opt/rocm" PATH_SUFFIXES include/hsa  REQUIRED )
+  INCLUDE_DIRECTORIES(${ROCR_HDR})
+  # Search for ROCr library file
+  find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
+  # Search for ROCt library file
+  find_library(ROCT_LIB ${ROC_THUNK_NAME} PATHS "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
+endif()
 
 #
 # Set the package version for the test. It is critical that this
@@ -152,7 +165,11 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
 
 # Build and link the test program
 add_executable(${TEST_NAME} ${Src})
-target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
+if(${hsa-runtime64_FOUND})
+   target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
+else()
+   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB} ${ROCT_LIB} )
+endif()
 target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 
 # Update linker flags to include RPATH
