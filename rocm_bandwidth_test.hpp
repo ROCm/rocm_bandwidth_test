@@ -519,6 +519,9 @@ class RocmBandwidthTest : public BaseTest {
   // Flag to print Cpu time
   bool print_cpu_time_;
 
+  // tsc freq
+  double tscFreq;
+
   // Determines if user has requested initialization
   bool init_;
 
