@@ -82,6 +82,7 @@ class PerfTimer {
 
   PerfTimer();
   ~PerfTimer();
+  void InitTimer();
 
  private:
 
