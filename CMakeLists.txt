@@ -120,15 +120,15 @@ if(NOT DEFINED CMAKE_MODULE_PATH)
 endif()
 include(utils)
 
-#making find_package(has-runtime64 Optional as it can fail when building old hsa
-#When find_package fails, then using old method of find_libraries for
-#searching the required libs for building RBT
+# Making find_package(has-runtime64 Optional as it can fail when building old hsa
+# When find_package fails, then using old method of find_libraries for
+# searching the required libs for building RBT
 find_package(hsa-runtime64
    PATHS  /opt/rocm )
 if(${hsa-runtime64_FOUND})
-  message( " hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
+  message("hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
 else()
-  message(" hsa-runtime64 NOT found Resolving to OLD Way" )
+  message("hsa-runtime64 NOT found Resolving to OLD Way" )
   find_path(ROCR_HDR hsa.h PATHS "/opt/rocm" PATH_SUFFIXES include/hsa  REQUIRED )
   INCLUDE_DIRECTORIES(${ROCR_HDR})
   # Search for ROCr library file
