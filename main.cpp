@@ -42,7 +42,6 @@
 
 #include <unistd.h>
 #include <iostream>
-#include "hsatimer.hpp"
 #include "rocm_bandwidth_test.hpp"
 
 using namespace std;

@@ -49,6 +49,7 @@
 #include <unistd.h>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <sstream>
 #include <limits>
 #include <chrono>
@@ -125,7 +126,7 @@ void RocmBandwidthTest::InitializeSrcBuffer(size_t size, void* buf_cpy,
   // If copying agent is a CPU, use memcpy to initialize copy buffer
   hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
   if (cpy_dev_type == HSA_DEVICE_TYPE_CPU) {
-    memcpy(buf_cpy, init_src_, size);
+    std::memcpy(buf_cpy, init_src_, size);
     return;
   }
 
@@ -149,7 +150,7 @@ bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, voi
   }
 
   // If Copy device is a Gpu setup buffer access
-  memset(validate_dst_, ~(0x23), curr_size);
+  std::memset(validate_dst_, ~(0x23), curr_size);
   hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
   if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(cpy_agent, validate_dst_);
@@ -161,11 +162,11 @@ bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, voi
 
     // Copying device is a CPU, copy dst buffer
     // into validation buffer
-    memcpy(validate_dst_, buf_cpy, curr_size);
+    std::memcpy(validate_dst_, buf_cpy, curr_size);
   }
 
   // Compare initialization buffer with validation buffer
-  err_ = (hsa_status_t)memcmp(init_src_, validate_dst_, curr_size);
+  err_ = (hsa_status_t)std::memcmp(init_src_, validate_dst_, curr_size);
   if (err_ != HSA_STATUS_SUCCESS) {
     exit_value_ = err_;
   }
@@ -595,12 +596,8 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       }
 
       // Create a timer object and start it
-      PerfTimer timer;
-      uint32_t cpuTimerIdx = 0;
       if (print_cpu_time_) {
-        timer.InitTimer();
-        cpuTimerIdx = timer.CreateTimer();
-        timer.StartTimer(cpuTimerIdx);
+        cpu_start_ = std::chrono::steady_clock::now();
       }
 
       // Launch the copy operation
@@ -634,8 +631,10 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
 
       // Stop the timer object and extract time taken
       if (print_cpu_time_) {
-        timer.StopTimer(cpuTimerIdx);
-        cpu_time.push_back(timer.ReadTimer(cpuTimerIdx));
+        cpu_end_ = std::chrono::steady_clock::now();
+        cpu_cp_time_ = cpu_end_ - cpu_start_;
+        uint64_t cpu_temp = cpu_cp_time_.count();
+        cpu_time.push_back(cpu_temp);
       }
 
       // Collect time from the signal(s)
@@ -816,7 +815,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 4;
+  version_.minor_id = 5;
   version_.step_id = 0;
   version_.reserved = 0;
 
@@ -826,11 +825,13 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   if (bw_sleep_time_ != NULL) {
     sleep_time_ = atoi(bw_sleep_time_);
     if ((sleep_time_ < 0) || (sleep_time_ > 60000)) {
+      std::cout << "Unit of sleep time is defined as 10 microseconds" << std::endl;
+      std::cout << "An input value of 10 implies sleep time of 100 microseconds" << std::endl;
       std::cout << "Value of ROCM_BW_SLEEP_TIME must be between [1, 60000)" << sleep_time_ << std::endl;
       exit(1);
     }
-    sleep_time_ *= 100;
-    std::chrono::duration<uint32_t, std::micro> temp(sleep_time_);
+    sleep_time_ *= 10;
+    std::chrono::microseconds temp(sleep_time_);
     sleep_usecs_ = temp;
   }
 

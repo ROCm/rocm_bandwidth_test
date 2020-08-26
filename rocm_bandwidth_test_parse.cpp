@@ -97,7 +97,7 @@ static bool ParseOptionValue(char* value, vector<size_t>&value_list) {
     // Read the option value
     stream >> token;
     if (stream.fail()) {
-      exit(-1);
+      return false;
     }
 
     // Update output list with values
@@ -436,6 +436,7 @@ void RocmBandwidthTest::ParseArguments() {
         status = ParseOptionValue(optarg, size_list_);
         if (status == false) {
           print_help = true;
+          break;
         }
         copy_ctrl_mask |= USR_BUFFER_SIZE;
         break;

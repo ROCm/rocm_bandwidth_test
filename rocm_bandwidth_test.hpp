@@ -45,7 +45,6 @@
 
 #include "hsa.h"
 #include "base_test.hpp"
-#include "hsatimer.hpp"
 #include "common.hpp"
 
 #include <vector>
@@ -508,11 +507,10 @@ class RocmBandwidthTest : public BaseTest {
   char* bw_iter_cnt_;
   char* bw_sleep_time_;
   uint32_t sleep_time_;
-  std::chrono::duration<uint32_t, std::micro> sleep_usecs_;
-
-  // Variable to store argument number
-
-  // Variable to store argument number
+  std::chrono::nanoseconds cpu_cp_time_;
+  std::chrono::microseconds sleep_usecs_;
+  std::chrono::time_point<std::chrono::steady_clock> cpu_end_;
+  std::chrono::time_point<std::chrono::steady_clock> cpu_start_;
 
   // Variable to store argument number
   uint32_t usr_argc_;
