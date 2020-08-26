@@ -45,7 +45,6 @@
 #define NANOSECONDS_PER_SECOND 1000000000
 
 PerfTimer::PerfTimer() {
-  freq_in_100mhz = MeasureTSCFreqHz();
 }
 
 PerfTimer::~PerfTimer() {
@@ -54,6 +53,10 @@ PerfTimer::~PerfTimer() {
     _timers.pop_back();
     delete temp;
   }
+}
+
+void PerfTimer::InitTimer() {
+  freq_in_100mhz = MeasureTSCFreqHz();
 }
 
 // Create a new timer instance and return its index

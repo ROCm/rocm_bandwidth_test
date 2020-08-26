@@ -49,6 +49,7 @@
 #include "common.hpp"
 
 #include <vector>
+#include <chrono>
 
 using namespace std;
 
@@ -505,6 +506,9 @@ class RocmBandwidthTest : public BaseTest {
   
   // Env key to specify iteration count
   char* bw_iter_cnt_;
+  char* bw_sleep_time_;
+  uint32_t sleep_time_;
+  std::chrono::duration<uint32_t, std::micro> sleep_usecs_;
 
   // Variable to store argument number
 

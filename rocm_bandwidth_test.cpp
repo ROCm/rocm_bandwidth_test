@@ -51,6 +51,8 @@
 #include <cmath>
 #include <sstream>
 #include <limits>
+#include <chrono>
+#include <thread>
 
 // Initialize the variable used to capture validation failure
 const double RocmBandwidthTest::VALIDATE_COPY_OP_FAILURE = std::numeric_limits<double>::max();
@@ -587,12 +589,21 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         hsa_signal_store_relaxed(signal_start_bidir, 1);
       }
 
-      // Create a timer object and reset signals
-      PerfTimer timer;
-      uint32_t index = timer.CreateTimer();
+      // Temporary code for testing
+      if (sleep_time_ > 0) {
+        std::this_thread::sleep_for(sleep_usecs_);
+      }
 
-      // Start the timer and launch forward copy operation
-      timer.StartTimer(index);
+      // Create a timer object and start it
+      PerfTimer timer;
+      uint32_t cpuTimerIdx = 0;
+      if (print_cpu_time_) {
+        timer.InitTimer();
+        cpuTimerIdx = timer.CreateTimer();
+        timer.StartTimer(cpuTimerIdx);
+      }
+
+      // Launch the copy operation
       if (bidir == false) {
         err_ = hsa_amd_memory_async_copy(buf_dst_fwd, dst_agent_fwd,
                                          buf_src_fwd, src_agent_fwd,
@@ -621,11 +632,11 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
 
       WaitForCopyCompletion(signal_list);
 
-      // Stop the timer object
-      timer.StopTimer(index);
-
-      // Push the time taken for copy into a vector of copy times
-      cpu_time.push_back(timer.ReadTimer(index));
+      // Stop the timer object and extract time taken
+      if (print_cpu_time_) {
+        timer.StopTimer(cpuTimerIdx);
+        cpu_time.push_back(timer.ReadTimer(cpuTimerIdx));
+      }
 
       // Collect time from the signal(s)
       if (print_cpu_time_ == false) {
@@ -667,7 +678,9 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
     verify = true;
 
     // Clear the stack of cpu times
-    cpu_time.clear();
+    if (print_cpu_time_) {
+      cpu_time.clear();
+    }
     gpu_time.clear();
   }
 
@@ -803,9 +816,23 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 3;
-  version_.step_id = 11;
+  version_.minor_id = 4;
+  version_.step_id = 0;
   version_.reserved = 0;
+
+  // Test impact of sleep, temp code
+  sleep_time_ = 0;
+  bw_sleep_time_ = getenv("ROCM_BW_SLEEP_TIME");
+  if (bw_sleep_time_ != NULL) {
+    sleep_time_ = atoi(bw_sleep_time_);
+    if ((sleep_time_ < 0) || (sleep_time_ > 60000)) {
+      std::cout << "Value of ROCM_BW_SLEEP_TIME must be between [1, 60000)" << sleep_time_ << std::endl;
+      exit(1);
+    }
+    sleep_time_ *= 100;
+    std::chrono::duration<uint32_t, std::micro> temp(sleep_time_);
+    sleep_usecs_ = temp;
+  }
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
@@ -817,6 +844,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
     int32_t num = atoi(bw_iter_cnt_);
     if (num < 0) {
       std::cout << "Value of ROCM_BW_ITER_CNT can't be negative: " << num << std::endl;
+      exit(1);
     }
     set_num_iteration(num);
   }
