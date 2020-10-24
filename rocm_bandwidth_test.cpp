@@ -80,7 +80,7 @@ const size_t RocmBandwidthTest::LATENCY_SIZE_LIST[] = { 1,
                                 256 * 1024, 512 * 1024 };
 
 uint32_t RocmBandwidthTest::GetIterationNum() {
-  return (validate_) ? 1 : (num_iteration_ * 1.2 + 1);
+  return (validate_) ? 1 : (num_iteration_ + 1);
 }
 
 void RocmBandwidthTest::AcquireAccess(hsa_agent_t agent, void* ptr) {
@@ -816,7 +816,7 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   // Initialize version of the test
   version_.major_id = 2;
   version_.minor_id = 5;
-  version_.step_id = 0;
+  version_.step_id = 1;
   version_.reserved = 0;
 
   // Test impact of sleep, temp code
@@ -824,10 +824,10 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   bw_sleep_time_ = getenv("ROCM_BW_SLEEP_TIME");
   if (bw_sleep_time_ != NULL) {
     sleep_time_ = atoi(bw_sleep_time_);
-    if ((sleep_time_ < 0) || (sleep_time_ > 60000)) {
+    if ((sleep_time_ < 0) || (sleep_time_ > 400000)) {
       std::cout << "Unit of sleep time is defined as 10 microseconds" << std::endl;
       std::cout << "An input value of 10 implies sleep time of 100 microseconds" << std::endl;
-      std::cout << "Value of ROCM_BW_SLEEP_TIME must be between [1, 60000)" << sleep_time_ << std::endl;
+      std::cout << "Value of ROCM_BW_SLEEP_TIME must be between [1, 400000]" << sleep_time_ << std::endl;
       exit(1);
     }
     sleep_time_ *= 10;
