@@ -61,7 +61,7 @@ static void printRecord(size_t size, double avg_time,
   }
 
   uint32_t format = 15;
-  std::cout.precision(6);
+  std::cout.precision(3);
   std::cout << std::fixed;
   std::cout.width(format);
   std::cout << size_str.str();
@@ -135,7 +135,6 @@ double RocmBandwidthTest::GetMeanTime(std::vector<double>& vec) {
   }
 
   std::sort(vec.begin(), vec.end());
-  vec.erase(vec.begin());
   vec.erase(vec.begin(), vec.begin() + num_iteration_ * 0.1);
   vec.erase(vec.begin() + num_iteration_, vec.end());
 
@@ -287,7 +286,7 @@ void RocmBandwidthTest::PrintPerfMatrix(bool validate, bool peak, double* perf_m
 
   std::cout << std::endl;
   std::cout << std::endl;
-  std::cout.precision(6);
+  std::cout.precision(3);
   std::cout << std::fixed;
 
   std::cout.width(format);

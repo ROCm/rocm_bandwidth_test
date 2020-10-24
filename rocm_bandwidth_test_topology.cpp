@@ -46,6 +46,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <cstring>
 
 // @brief: Helper method to iterate throught the memory pools of
 // an agent and discover its properties
@@ -158,7 +159,7 @@ void PopulateBDF(uint32_t bdf_id, agent_info_t *agent_info) {
   std::stringstream stream;
   stream << std::setfill('0') << std::setw(sizeof(uint8_t) * 2);
   stream << std::hex << +bus_id << ":" << +dev_id << "." << +func_id;
-  strcpy(agent_info->bdf_id_, (stream.str()).c_str());
+  std::strcpy(agent_info->bdf_id_, (stream.str()).c_str());
 }
 
 // @brief: Helper method to iterate throught the agents of
@@ -334,7 +335,7 @@ void RocmBandwidthTest::BindLinkProps(uint32_t idx1, uint32_t idx2) {
   hsa_amd_memory_pool_link_info_t *link_info;
   uint32_t link_info_sz = hops * sizeof(hsa_amd_memory_pool_link_info_t);
   link_info = (hsa_amd_memory_pool_link_info_t *)malloc(link_info_sz);
-  memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
+  std::memset(link_info, 0, (hops * sizeof(hsa_amd_memory_pool_link_info_t)));
   err_ = hsa_amd_agent_memory_pool_get_info(agent1, pool,
                  HSA_AMD_AGENT_MEMORY_POOL_INFO_LINK_INFO, link_info);
 

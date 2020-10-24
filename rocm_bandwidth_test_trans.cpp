@@ -418,11 +418,14 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
       data_size += data_size;
     }
 
-    // Get time taken by copy operation
+    // Get time taken by copy operation. Adjust time from nanoseconds
+    // to units of seconds
     if ((print_cpu_time_) ||
         (trans.copy.uses_gpu_ != true)) {
       avg_time = trans.cpu_avg_time_[idx];
       min_time = trans.cpu_min_time_[idx];
+      avg_time = avg_time / 1000 / 1000 / 1000;
+      min_time = min_time / 1000 / 1000 / 1000;
     } else {
       avg_time = trans.gpu_avg_time_[idx];
       min_time = trans.gpu_min_time_[idx];
