@@ -134,9 +134,9 @@ double RocmBandwidthTest::GetMeanTime(std::vector<double>& vec) {
     return vec.at(0);
   }
 
+  // Number of elements is ONE plus number of iterations
   std::sort(vec.begin(), vec.end());
-  vec.erase(vec.begin(), vec.begin() + num_iteration_ * 0.1);
-  vec.erase(vec.begin() + num_iteration_, vec.end());
+  vec.erase(vec.end() - 1);
 
   double mean = 0.0;
   int num = vec.size();

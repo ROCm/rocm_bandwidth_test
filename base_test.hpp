@@ -56,7 +56,7 @@ class BaseTest {
 
  public:
 
-  BaseTest(size_t num = 3);
+  BaseTest(size_t num_iter = 4);
 
   virtual ~BaseTest();
 
@@ -74,8 +74,8 @@ class BaseTest {
   virtual void Display() const = 0;
 
   // @Brief: Set number of iterations to run
-  void set_num_iteration(size_t num) {
-    num_iteration_ = num;
+  void set_num_iteration(size_t num_iter) {
+    num_iteration_ = num_iter;
     return;
   }
 
