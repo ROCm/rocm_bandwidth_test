@@ -49,8 +49,14 @@
 #include <unistd.h>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <sstream>
 #include <limits>
+#include <chrono>
+#include <thread>
+
+// Initialize the variable used to capture validation failure
+const double RocmBandwidthTest::VALIDATE_COPY_OP_FAILURE = std::numeric_limits<double>::max();
 
 // The values are in megabytes at allocation time
 const size_t RocmBandwidthTest::SIZE_LIST[] = { 1 * 1024,
@@ -74,7 +80,7 @@ const size_t RocmBandwidthTest::LATENCY_SIZE_LIST[] = { 1,
                                 256 * 1024, 512 * 1024 };
 
 uint32_t RocmBandwidthTest::GetIterationNum() {
-  return (validate_) ? 1 : (num_iteration_ * 1.2 + 1);
+  return (validate_) ? 1 : (num_iteration_ + 1);
 }
 
 void RocmBandwidthTest::AcquireAccess(hsa_agent_t agent, void* ptr) {
@@ -92,10 +98,12 @@ void RocmBandwidthTest::AcquirePoolAcceses(uint32_t src_dev_idx,
   hsa_device_type_t dst_dev_type = agent_list_[dst_dev_idx].device_type_;
   if (src_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(src_agent, dst);
-  } else if (dst_dev_type == HSA_DEVICE_TYPE_GPU) {
+  }
+
+  if (dst_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(dst_agent, src);
   }
-  
+
   return;
 }
   
@@ -115,19 +123,20 @@ void RocmBandwidthTest::InitializeSrcBuffer(size_t size, void* buf_cpy,
     ErrorCheck(err_);
   }
 
-  // If Copy device is a Gpu setup buffer access
+  // If copying agent is a CPU, use memcpy to initialize copy buffer
   hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
-  if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
-    AcquireAccess(cpy_agent, init_src_);
-    hsa_signal_store_relaxed(init_signal_, 1);
-    copy_buffer(buf_cpy, cpy_agent,
-                init_src_, cpu_agent_,
-                size, init_signal_);
+  if (cpy_dev_type == HSA_DEVICE_TYPE_CPU) {
+    std::memcpy(buf_cpy, init_src_, size);
     return;
   }
 
-  // Copy initialization buffer into copy buffer
-  memcpy(buf_cpy, init_src_, size);
+  // Copying device is a Gpu, setup buffer access
+  // before copying initialization buffer
+  AcquireAccess(cpy_agent, init_src_);
+  hsa_signal_store_relaxed(init_signal_, 1);
+  copy_buffer(buf_cpy, cpy_agent,
+              init_src_, cpu_agent_,
+              size, init_signal_);
   return;
 }
   
@@ -141,7 +150,7 @@ bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, voi
   }
 
   // If Copy device is a Gpu setup buffer access
-  memset(validate_dst_, ~(0x23), curr_size);
+  std::memset(validate_dst_, ~(0x23), curr_size);
   hsa_device_type_t cpy_dev_type = agent_list_[cpy_dev_idx].device_type_;
   if (cpy_dev_type == HSA_DEVICE_TYPE_GPU) {
     AcquireAccess(cpy_agent, validate_dst_);
@@ -153,11 +162,11 @@ bool RocmBandwidthTest::ValidateDstBuffer(size_t max_size, size_t curr_size, voi
 
     // Copying device is a CPU, copy dst buffer
     // into validation buffer
-    memcpy(validate_dst_, buf_cpy, curr_size);
+    std::memcpy(validate_dst_, buf_cpy, curr_size);
   }
 
-  // Copy initialization buffer into copy buffer
-  err_ = (hsa_status_t)memcmp(init_src_, validate_dst_, curr_size);
+  // Compare initialization buffer with validation buffer
+  err_ = (hsa_status_t)std::memcmp(init_src_, validate_dst_, curr_size);
   if (err_ != HSA_STATUS_SUCCESS) {
     exit_value_ = err_;
   }
@@ -581,12 +590,17 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
         hsa_signal_store_relaxed(signal_start_bidir, 1);
       }
 
-      // Create a timer object and reset signals
-      PerfTimer timer;
-      uint32_t index = timer.CreateTimer();
+      // Temporary code for testing
+      if (sleep_time_ > 0) {
+        std::this_thread::sleep_for(sleep_usecs_);
+      }
 
-      // Start the timer and launch forward copy operation
-      timer.StartTimer(index);
+      // Create a timer object and start it
+      if (print_cpu_time_) {
+        cpu_start_ = std::chrono::steady_clock::now();
+      }
+
+      // Launch the copy operation
       if (bidir == false) {
         err_ = hsa_amd_memory_async_copy(buf_dst_fwd, dst_agent_fwd,
                                          buf_src_fwd, src_agent_fwd,
@@ -615,11 +629,13 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
 
       WaitForCopyCompletion(signal_list);
 
-      // Stop the timer object
-      timer.StopTimer(index);
-
-      // Push the time taken for copy into a vector of copy times
-      cpu_time.push_back(timer.ReadTimer(index));
+      // Stop the timer object and extract time taken
+      if (print_cpu_time_) {
+        cpu_end_ = std::chrono::steady_clock::now();
+        cpu_cp_time_ = cpu_end_ - cpu_start_;
+        uint64_t cpu_temp = cpu_cp_time_.count();
+        cpu_time.push_back(cpu_temp);
+      }
 
       // Collect time from the signal(s)
       if (print_cpu_time_ == false) {
@@ -635,16 +651,25 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
       }
     }
 
-    // Get Cpu min copy time
-    trans.cpu_min_time_.push_back(GetMinTime(cpu_time));
-    // Get Cpu mean copy time and store to the array
-    trans.cpu_avg_time_.push_back(GetMeanTime(cpu_time));
+    // Collecting Cpu time. Capture verify failures if any
+    // Get min and mean copy times and collect them into Cpu
+    // time list
+    double min_time = 0;
+    double mean_time = 0;
+    if (print_cpu_time_) {
+      min_time = (verify) ? GetMinTime(cpu_time) : VALIDATE_COPY_OP_FAILURE;
+      mean_time = (verify) ? GetMeanTime(cpu_time) : VALIDATE_COPY_OP_FAILURE;
+      trans.cpu_min_time_.push_back(min_time);
+      trans.cpu_avg_time_.push_back(mean_time);
+    }
 
+    // Collecting Gpu time. Capture verify failures if any
+    // Get min and mean copy times and collect them into Gpu
+    // time list
     if (print_cpu_time_ == false) {
       if (trans.copy.uses_gpu_) {
-        // Get Gpu min and mean copy times
-        double min_time = (verify) ? GetMinTime(gpu_time) : std::numeric_limits<double>::max();
-        double mean_time = (verify) ? GetMeanTime(gpu_time) : std::numeric_limits<double>::max();
+        min_time = (verify) ? GetMinTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
+        mean_time = (verify) ? GetMeanTime(gpu_time) : VALIDATE_COPY_OP_FAILURE;
         trans.gpu_min_time_.push_back(min_time);
         trans.gpu_avg_time_.push_back(mean_time);
       }
@@ -652,7 +677,9 @@ void RocmBandwidthTest::RunCopyBenchmark(async_trans_t& trans) {
     verify = true;
 
     // Clear the stack of cpu times
-    cpu_time.clear();
+    if (print_cpu_time_) {
+      cpu_time.clear();
+    }
     gpu_time.clear();
   }
 
@@ -788,19 +815,37 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 3;
-  version_.step_id = 2;
+  version_.minor_id = 5;
+  version_.step_id = 1;
   version_.reserved = 0;
+
+  // Test impact of sleep, temp code
+  sleep_time_ = 0;
+  bw_sleep_time_ = getenv("ROCM_BW_SLEEP_TIME");
+  if (bw_sleep_time_ != NULL) {
+    sleep_time_ = atoi(bw_sleep_time_);
+    if ((sleep_time_ < 0) || (sleep_time_ > 400000)) {
+      std::cout << "Unit of sleep time is defined as 10 microseconds" << std::endl;
+      std::cout << "An input value of 10 implies sleep time of 100 microseconds" << std::endl;
+      std::cout << "Value of ROCM_BW_SLEEP_TIME must be between [1, 400000]" << sleep_time_ << std::endl;
+      exit(1);
+    }
+    sleep_time_ *= 10;
+    std::chrono::microseconds temp(sleep_time_);
+    sleep_usecs_ = temp;
+  }
 
   bw_iter_cnt_ = getenv("ROCM_BW_ITER_CNT");
   bw_default_run_ = getenv("ROCM_BW_DEFAULT_RUN");
   bw_blocking_run_ = getenv("ROCR_BW_RUN_BLOCKING");
-  skip_fine_grain_ = getenv("ROCM_SKIP_FINE_GRAINED_POOL");
+  skip_cpu_fine_grain_ = getenv("ROCM_SKIP_CPU_FINE_GRAINED_POOL");
+  skip_gpu_coarse_grain_ = getenv("ROCM_SKIP_GPU_COARSE_GRAINED_POOL");
 
   if (bw_iter_cnt_ != NULL) {
     int32_t num = atoi(bw_iter_cnt_);
     if (num < 0) {
       std::cout << "Value of ROCM_BW_ITER_CNT can't be negative: " << num << std::endl;
+      exit(1);
     }
     set_num_iteration(num);
   }

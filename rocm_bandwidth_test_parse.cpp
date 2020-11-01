@@ -97,7 +97,7 @@ static bool ParseOptionValue(char* value, vector<size_t>&value_list) {
     // Read the option value
     stream >> token;
     if (stream.fail()) {
-      exit(-1);
+      return false;
     }
 
     // Update output list with values
@@ -147,9 +147,7 @@ void RocmBandwidthTest::ValidateCopyUnidirFlags(uint32_t copy_mask,
   // It is illegal to specify Latency and another
   // secondary flag that affects a copy operation
   if ((copy_ctrl_mask & DEV_COPY_LATENCY) &&
-       ((copy_ctrl_mask & USR_BUFFER_INIT) ||
-        (copy_ctrl_mask & CPU_VISIBLE_TIME) ||
-        (copy_ctrl_mask & VALIDATE_COPY_OP))) {
+      (copy_ctrl_mask & VALIDATE_COPY_OP)) {
     PrintHelpScreen();
     exit(0);
   }
@@ -221,6 +219,12 @@ void RocmBandwidthTest::ValidateInputFlags(uint32_t pf_cnt,
   // Input is requesting to print ROCm topology
   // rocm_bandwidth_test -t
   if (req_topology_ == REQ_TOPOLOGY) {
+    return;
+  }
+
+  // Input is requesting to print list of devices
+  // rocm_bandwidth_test -e
+  if (req_list_devs_ == REQ_LIST_DEVS) {
     return;
   }
 
@@ -338,7 +342,7 @@ void RocmBandwidthTest::ParseArguments() {
   
   int opt;
   bool status;
-  while ((opt = getopt(usr_argc_, usr_argv_, "hqtclvaAb:i:s:d:r:w:m:k:K:")) != -1) {
+  while ((opt = getopt(usr_argc_, usr_argv_, "hqteclvaAb:i:s:d:r:w:m:k:K:")) != -1) {
     switch (opt) {
 
       // Print help screen
@@ -350,6 +354,12 @@ void RocmBandwidthTest::ParseArguments() {
       case 'q':
         num_primary_flags++;
         req_version_ = REQ_VERSION;
+        break;
+
+      // Print list of devices
+      case 'e':
+        num_primary_flags++;
+        req_list_devs_ = REQ_LIST_DEVS;
         break;
 
       // Print system topology
@@ -426,6 +436,7 @@ void RocmBandwidthTest::ParseArguments() {
         status = ParseOptionValue(optarg, size_list_);
         if (status == false) {
           print_help = true;
+          break;
         }
         copy_ctrl_mask |= USR_BUFFER_SIZE;
         break;
@@ -510,7 +521,14 @@ void RocmBandwidthTest::ParseArguments() {
   // Discover the topology of RocR agent in system
   DiscoverTopology();
   
-  // Print system topology if user option has "-t"
+  // Print list of devices if user option is "-e"
+  if (req_list_devs_ == REQ_LIST_DEVS) {
+    PrintVersion();
+    PrintTopology();
+    exit(0);
+  }
+  
+  // Print system topology if user option is "-t"
   if (req_topology_ == REQ_TOPOLOGY) {
     PrintVersion();
     PrintTopology();

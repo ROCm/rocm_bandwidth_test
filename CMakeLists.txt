@@ -27,6 +27,12 @@ cmake_minimum_required(VERSION 2.8.0)
 #
 #
 
+# Specify name of project to build, install and package
+set(PROJECT_NAME "rocm-bandwidth-test")
+set(TEST_NAME "${PROJECT_NAME}")
+project(${PROJECT_NAME})
+
+
 # Build is not supported on Windows plaform
 if(WIN32)
   message("Windows platfom is not supported")
@@ -56,7 +62,6 @@ endif()
 set(CMAKE_CXX_FLAGS "-std=c++11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-dev")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
@@ -103,60 +108,10 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
 endif()
 
-# Specify name of project to build, install and package
-set(PROJECT_NAME "rocm_bandwidth_test")
-set(TEST_NAME "${PROJECT_NAME}")
-project(${PROJECT_NAME})
-
 # Set project requirements
 set(ROC_THUNK_NAME "hsakmt")
 set(CORE_RUNTIME_NAME "hsa-runtime")
 set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
-
-# Bind default root directory to look for ROCm artifacts
-# such as ROCr header and ROCr, ROCt libraries
-set(ROCM_ROOT /opt/rocm/ CACHE PATH "Root of ROCm")
-if(DEFINED ENV{CMAKE_PREFIX_PATH})
-  set(CMAKE_PREFIX_PATH $ENV{CMAKE_PREFIX_PATH})
-endif()
-if(CMAKE_PREFIX_PATH)
-  set(ROCM_ROOT ${CMAKE_PREFIX_PATH} CACHE PATH "Root of ROCm")
-endif()
-
-# Search for ROCr header file
-find_path(ROCR_HDR hsa/hsa.h PATHS ${ROCM_ROOT} PATH_SUFFIXES include )
-if (NOT ROCR_HDR)
-  message("Rocr Header hsa/hsa.h not found")
-  return()
-endif()
-
-# Add directories to look for header files to compile
-INCLUDE_DIRECTORIES(${ROCR_HDR})
-
-# Search for ROCr library file
-find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS ${ROCM_ROOT} PATH_SUFFIXES lib lib64)
-if (NOT ROCR_LIB)
-  message("Rocr Library ${CORE_RUNTIME_TARGET} not found")
-  return()
-endif()
-
-# Search for ROCr library file
-find_library(ROCT_LIB ${ROC_THUNK_NAME} PATHS ${ROCM_ROOT} PATH_SUFFIXES lib lib64)
-if (NOT ROCT_LIB)
-  message("Roct Library ${ROC_THUNK_NAME} not found")
-  return()
-endif()
-
-# Add ROCr library to be used in linking target
-add_library(${CORE_RUNTIME_TARGET} SHARED IMPORTED GLOBAL)
-set_target_properties(${CORE_RUNTIME_TARGET} PROPERTIES
-                      IMPORTED_LOCATION "${ROCR_LIB}"
-                      INTERFACE_INCLUDE_DIRECTORIES "${ROCR_HDR}")
-
-# Add ROCr library to be used in linking target
-add_library(${ROC_THUNK_NAME} SHARED IMPORTED GLOBAL)
-set_target_properties(${ROC_THUNK_NAME} PROPERTIES
-                      IMPORTED_LOCATION "${ROCT_LIB}")
 
 # Add cmake_modules to default module path if it is not
 # already set and include utils from cmake modules
@@ -165,12 +120,29 @@ if(NOT DEFINED CMAKE_MODULE_PATH)
 endif()
 include(utils)
 
+# Making find_package(has-runtime64 Optional as it can fail when building old hsa
+# When find_package fails, then using old method of find_libraries for
+# searching the required libs for building RBT
+find_package(hsa-runtime64
+   PATHS  /opt/rocm )
+if(${hsa-runtime64_FOUND})
+  message("hsa-runtime64 found @  ${hsa-runtime64_DIR} " )
+else()
+  message("hsa-runtime64 NOT found Resolving to OLD Way" )
+  find_path(ROCR_HDR hsa.h PATHS "/opt/rocm" PATH_SUFFIXES include/hsa  REQUIRED )
+  INCLUDE_DIRECTORIES(${ROCR_HDR})
+  # Search for ROCr library file
+  find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
+  # Search for ROCt library file
+  find_library(ROCT_LIB ${ROC_THUNK_NAME} PATHS "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
+endif()
+
 #
 # Set the package version for the test. It is critical that this
 # value track what is used in the test source. The code from utils
 # module will parse the string into major, minor and patch sub-fields
 #
-get_version("1.0.0")
+get_version()
 
 # Bind the Major, Minor and Patch values
 set(BUILD_VERSION_MAJOR ${VERSION_MAJOR})
@@ -192,9 +164,18 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
 
 # Build and link the test program
 add_executable(${TEST_NAME} ${Src})
-target_link_libraries(${TEST_NAME} ${ROC_THUNK_NAME})
-target_link_libraries(${TEST_NAME} ${CORE_RUNTIME_TARGET})
-target_link_libraries(${TEST_NAME} c stdc++ dl pthread rt)
+if(${hsa-runtime64_FOUND})
+   target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
+else()
+   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB} ${ROCT_LIB} )
+endif()
+target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
+
+# Update linker flags to include RPATH
+# Add --enable-new-dtags to generate DT_RUNPATH
+if( DEFINED ENV{ROCM_RPATH})
+   set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}" )
+endif()
 
 # Add install directives for rocm_bandwidth_test
 install(TARGETS ${TEST_NAME} RUNTIME DESTINATION bin)
@@ -209,7 +190,11 @@ set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Test to measure PciE bandwidth on ROCm platforms")
 
 # Debian package specific variables
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
+
+# RPM package specific variables
+set(CPACK_RPM_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
 
 # RPM package specific variables
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)

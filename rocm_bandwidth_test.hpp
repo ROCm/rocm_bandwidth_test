@@ -43,12 +43,12 @@
 #ifndef __ROC_BANDWIDTH_TEST_H__
 #define __ROC_BANDWIDTH_TEST_H__
 
-#include "hsa/hsa.h"
+#include "hsa.h"
 #include "base_test.hpp"
-#include "hsatimer.hpp"
 #include "common.hpp"
 
 #include <vector>
+#include <chrono>
 
 using namespace std;
 
@@ -168,13 +168,14 @@ typedef enum Request_Type {
   REQ_WRITE = 2,
   REQ_VERSION = 3,
   REQ_TOPOLOGY = 4,
-  REQ_COPY_BIDIR = 5,
-  REQ_COPY_UNIDIR = 6,
-  REQ_COPY_ALL_BIDIR = 7,
-  REQ_COPY_ALL_UNIDIR = 8,
-  REQ_CONCURRENT_COPY_BIDIR = 9,
-  REQ_CONCURRENT_COPY_UNIDIR = 10,
-  REQ_INVALID = 11,
+  REQ_LIST_DEVS = 5,
+  REQ_COPY_BIDIR = 6,
+  REQ_COPY_UNIDIR = 7,
+  REQ_COPY_ALL_BIDIR = 8,
+  REQ_COPY_ALL_UNIDIR = 9,
+  REQ_CONCURRENT_COPY_BIDIR = 10,
+  REQ_CONCURRENT_COPY_UNIDIR = 11,
+  REQ_INVALID = 12,
 
 } Request_Type;
 
@@ -446,6 +447,7 @@ class RocmBandwidthTest : public BaseTest {
   uint32_t req_write_;
   uint32_t req_version_;
   uint32_t req_topology_;
+  uint32_t req_list_devs_;
   uint32_t req_copy_bidir_;
   uint32_t req_copy_unidir_;
   uint32_t req_copy_all_bidir_;
@@ -472,6 +474,9 @@ class RocmBandwidthTest : public BaseTest {
   static const uint32_t LINK_PROP_TYPE = 0x01;
   static const uint32_t LINK_PROP_WEIGHT = 0x02;
   static const uint32_t LINK_PROP_ACCESS = 0x03;
+  
+  // Encodes validation failure
+  static const double VALIDATE_COPY_OP_FAILURE;
 
   // List used to store transactions per user request
   vector<async_trans_t> trans_list_;
@@ -488,7 +493,8 @@ class RocmBandwidthTest : public BaseTest {
   
   // Env key to determine if Fine-grained or
   // Coarse-grained pool should be filtered out
-  char* skip_fine_grain_;
+  char* skip_cpu_fine_grain_;
+  char* skip_gpu_coarse_grain_;
   
   // Env key to determine if the run should block
   // or actively wait on completion signal
@@ -499,10 +505,12 @@ class RocmBandwidthTest : public BaseTest {
   
   // Env key to specify iteration count
   char* bw_iter_cnt_;
-
-  // Variable to store argument number
-
-  // Variable to store argument number
+  char* bw_sleep_time_;
+  uint32_t sleep_time_;
+  std::chrono::nanoseconds cpu_cp_time_;
+  std::chrono::microseconds sleep_usecs_;
+  std::chrono::time_point<std::chrono::steady_clock> cpu_end_;
+  std::chrono::time_point<std::chrono::steady_clock> cpu_start_;
 
   // Variable to store argument number
   uint32_t usr_argc_;

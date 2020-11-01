@@ -45,39 +45,67 @@
 ## the major, minor and patch variables.
 function( parse_version VERSION_STRING )
 
-    string ( FIND ${VERSION_STRING} "-" STRING_INDEX )
+  # Get index of '-' character in input string
+  string ( FIND ${VERSION_STRING} "-" STRING_INDEX )
 
-    if ( ${STRING_INDEX} GREATER -1 )
-        math ( EXPR STRING_INDEX "${STRING_INDEX} + 1" )
-        string ( SUBSTRING ${VERSION_STRING} ${STRING_INDEX} -1 VERSION_BUILD )
-    endif ()
+  # If there is string after '-' character, capture
+  # it in COMMIT_INFO string
+  if ( ${STRING_INDEX} GREATER -1 )
+    math ( EXPR STRING_INDEX "${STRING_INDEX} + 1" )
+    string ( SUBSTRING ${VERSION_STRING} ${STRING_INDEX} -1 COMMIT_INFO )
+  endif ()
 
-    string ( REGEX MATCHALL "[0123456789]+" VERSIONS ${VERSION_STRING} )
-    list ( LENGTH VERSIONS VERSION_COUNT )
+  # Parse string into tokens that consist of only numerical
+  # substrings and obtain it as a list
+  string ( REGEX MATCHALL "[0123456789]+" TOKENS ${VERSION_STRING} )
+  list ( LENGTH TOKENS TOKEN_COUNT )
 
-    if ( ${VERSION_COUNT} GREATER 0)
-        list ( GET VERSIONS 0 MAJOR )
-        set ( VERSION_MAJOR ${MAJOR} PARENT_SCOPE )
-        set ( TEMP_VERSION_STRING "${MAJOR}" )
-    endif ()
+  # Get Major Id of the version
+  if ( ${TOKEN_COUNT} GREATER 0)
+    list ( GET TOKENS 0 MAJOR )
+    set ( VERSION_MAJOR ${MAJOR} PARENT_SCOPE )
+  endif ()
 
-    if ( ${VERSION_COUNT} GREATER 1 )
-        list ( GET VERSIONS 1 MINOR )
-        set ( VERSION_MINOR ${MINOR} PARENT_SCOPE )
-        set ( TEMP_VERSION_STRING "${TEMP_VERSION_STRING}.${MINOR}" )
-    endif ()
+  # Get Minor Id of the version
+  if ( ${TOKEN_COUNT} GREATER 1 )
+    list ( GET TOKENS 1 MINOR )
+    set ( VERSION_MINOR ${MINOR} PARENT_SCOPE )
+  endif ()
+    
+  # Get Patch Id of the version
+  if ( ${TOKEN_COUNT} GREATER 2 )
+    list ( GET TOKENS 2 PATCH )
+    set ( VERSION_PATCH ${PATCH} PARENT_SCOPE )
+  endif ()
 
-    if ( ${VERSION_COUNT} GREATER 2 )
-        list ( GET VERSIONS 2 PATCH )
-        set ( VERSION_PATCH ${PATCH} PARENT_SCOPE )
-        set ( TEMP_VERSION_STRING "${TEMP_VERSION_STRING}.${PATCH}" )
-    endif ()
+  # Return if commit info is not present
+  if ( NOT DEFINED COMMIT_INFO )
+    return()
+  endif()
+  
+  # Parse Commit string if present into number of
+  # commits and hash of last commit
+  string ( FIND ${COMMIT_INFO} "-" STRING_INDEX )
+  if ( ${STRING_INDEX} GREATER -1 )
+      math ( EXPR STRING_INDEX "${STRING_INDEX} + 1" )
+      string ( SUBSTRING ${COMMIT_INFO} ${STRING_INDEX} -1 COMMIT_HASH )
+  endif ()
 
-    if ( DEFINED VERSION_BUILD )
-        set ( VERSION_BUILD "${VERSION_BUILD}" PARENT_SCOPE )
-    endif ()
+  string ( REGEX MATCHALL "[0123456789]+" TOKENS ${COMMIT_INFO} )
+  list ( LENGTH TOKENS TOKEN_COUNT )
 
-    set ( VERSION_STRING "${TEMP_VERSION_STRING}" PARENT_SCOPE )
+  if ( ${TOKEN_COUNT} GREATER 0)
+    list ( GET TOKENS 0 COMMIT_CNT )
+  endif ()
+
+  # Add Build Info from Jenkins
+  set ( ROCM_BUILD_ID "DevBld" CACHE STRING "Local Build Id" FORCE )
+  if(DEFINED ENV{ROCM_BUILD_ID})
+    set ( ROCM_BUILD_ID $ENV{ROCM_BUILD_ID} CACHE STRING "Jenkins Build Id" FORCE )
+  endif()
+
+  # Update Version Patch to include Number of Commits and hash of HEAD
+  set ( VERSION_PATCH "${PATCH}.${COMMIT_CNT}-${ROCM_BUILD_ID}-${COMMIT_HASH}" PARENT_SCOPE )
 
 endfunction ()
 
@@ -85,31 +113,27 @@ endfunction ()
 ## using versioning tags and git describe.
 ## Passes back a packaging version string
 ## and a library version string.
-function ( get_version DEFAULT_VERSION_STRING )
+function ( get_version )
 
-    parse_version ( ${DEFAULT_VERSION_STRING} )
+  # Bind the program git that will be
+  # used to query its tag that describes
+  find_program ( GIT NAMES git )
 
-    find_program ( GIT NAMES git )
-
-    if ( GIT )
-        execute_process ( COMMAND "git describe --dirty --long --match [0-9]* 2> /dev/null"
-                          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                          OUTPUT_VARIABLE GIT_TAG_STRING
-                          OUTPUT_STRIP_TRAILING_WHITESPACE
-                          RESULT_VARIABLE RESULT )
-
-        if ( ${RESULT} EQUAL 0 )
-
-            parse_version ( ${GIT_TAG_STRING} )
-
-        endif ()
-
+  if ( GIT )
+    execute_process ( COMMAND git describe --long --match [0-9]*
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                        OUTPUT_VARIABLE GIT_TAG_STRING
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        RESULT_VARIABLE RESULT )
+    if ( ${RESULT} EQUAL 0 )
+      parse_version ( ${GIT_TAG_STRING} )
     endif ()
+  endif ()
 
-    set( VERSION_STRING "${VERSION_STRING}" PARENT_SCOPE )
-    set( VERSION_MAJOR  "${VERSION_MAJOR}" PARENT_SCOPE )
-    set( VERSION_MINOR  "${VERSION_MINOR}" PARENT_SCOPE )
-    set( VERSION_PATCH  "${VERSION_PATCH}" PARENT_SCOPE )
-    set( VERSION_BUILD  "${VERSION_BUILD}" PARENT_SCOPE )
+  # Propagate values bound to parent scope
+  set( VERSION_MAJOR  "${VERSION_MAJOR}" PARENT_SCOPE )
+  set( VERSION_MINOR  "${VERSION_MINOR}" PARENT_SCOPE )
+  set( VERSION_PATCH  "${VERSION_PATCH}" PARENT_SCOPE )
 
 endfunction()
+

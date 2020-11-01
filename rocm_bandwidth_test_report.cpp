@@ -61,7 +61,7 @@ static void printRecord(size_t size, double avg_time,
   }
 
   uint32_t format = 15;
-  std::cout.precision(6);
+  std::cout.precision(3);
   std::cout << std::fixed;
   std::cout.width(format);
   std::cout << size_str.str();
@@ -134,10 +134,9 @@ double RocmBandwidthTest::GetMeanTime(std::vector<double>& vec) {
     return vec.at(0);
   }
 
+  // Number of elements is ONE plus number of iterations
   std::sort(vec.begin(), vec.end());
-  vec.erase(vec.begin());
-  vec.erase(vec.begin(), vec.begin() + num_iteration_ * 0.1);
-  vec.erase(vec.begin() + num_iteration_, vec.end());
+  vec.erase(vec.end() - 1);
 
   double mean = 0.0;
   int num = vec.size();
@@ -287,7 +286,7 @@ void RocmBandwidthTest::PrintPerfMatrix(bool validate, bool peak, double* perf_m
 
   std::cout << std::endl;
   std::cout << std::endl;
-  std::cout.precision(6);
+  std::cout.precision(3);
   std::cout << std::fixed;
 
   std::cout.width(format);
@@ -318,7 +317,7 @@ void RocmBandwidthTest::PrintPerfMatrix(bool validate, bool peak, double* perf_m
       if (validate) {
         if (value == 0) {
           std::cout << "N/A";
-        } else if (value < 1) {
+        } else if (value == VALIDATE_COPY_OP_FAILURE) {
           std::cout << "FAIL";
         } else {
           std::cout << "PASS";

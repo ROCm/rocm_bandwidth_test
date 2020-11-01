@@ -130,7 +130,7 @@ bool RocmBandwidthTest::FilterCpuPool(uint32_t req_type,
 
   // If env to skip fine grain is NULL it means
   // we should filter out coarse-grain pools
-  if (skip_fine_grain_ == NULL) {
+  if (skip_cpu_fine_grain_ == NULL) {
     return (fine_grained == false);
   }
 
@@ -394,7 +394,7 @@ void RocmBandwidthTest::ComputeCopyTime(std::vector<async_trans_t>& trans_list) 
 }
 
 void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
-
+  
   // Get the frequency of Gpu Timestamping
   uint64_t sys_freq = 0;
   hsa_system_get_info(HSA_SYSTEM_INFO_TIMESTAMP_FREQUENCY, &sys_freq);
@@ -418,25 +418,49 @@ void RocmBandwidthTest::ComputeCopyTime(async_trans_t& trans) {
       data_size += data_size;
     }
 
-    // Copy operation does not involve a Gpu device
-    // Divide bandwidth with 10^9 to get size in GigaBytes (10^9)
-    if (trans.copy.uses_gpu_ != true) {
+    // Get time taken by copy operation. Adjust time from nanoseconds
+    // to units of seconds
+    if ((print_cpu_time_) ||
+        (trans.copy.uses_gpu_ != true)) {
       avg_time = trans.cpu_avg_time_[idx];
       min_time = trans.cpu_min_time_[idx];
-      avg_bandwidth = (double)data_size / avg_time / 1000 / 1000 / 1000;
-      peak_bandwidth = (double)data_size / min_time / 1000 / 1000 / 1000;
+      avg_time = avg_time / 1000 / 1000 / 1000;
+      min_time = min_time / 1000 / 1000 / 1000;
     } else {
-      if (print_cpu_time_ == false) {
-        avg_time = trans.gpu_avg_time_[idx] / sys_freq;
-        min_time = trans.gpu_min_time_[idx] / sys_freq;
-      } else {
-        avg_time = trans.cpu_avg_time_[idx];
-        min_time = trans.cpu_min_time_[idx];
-      }
+      avg_time = trans.gpu_avg_time_[idx];
+      min_time = trans.gpu_min_time_[idx];
+    }
+
+    // Determine if there was a validation failure
+    // @note: Value is set to VALIDATE_COPY_OP_FAILURE
+    // if copy transaction wa validated and it failed
+    hsa_status_t verify_status = HSA_STATUS_ERROR;
+    if ((avg_time != VALIDATE_COPY_OP_FAILURE) &&
+        (min_time != VALIDATE_COPY_OP_FAILURE)) {
+      verify_status = HSA_STATUS_SUCCESS;
+    }
+
+    // Adjust Gpu time if there is no validation error
+    if ((trans.copy.uses_gpu_) &&
+        (print_cpu_time_ == false) &&
+        (verify_status == HSA_STATUS_SUCCESS)) {
+      avg_time = avg_time / sys_freq;
+      min_time = min_time / sys_freq;
+    }
+
+    // Compute bandwidth - divide bandwidth with
+    // 10^9 not 1024^3 to get size in GigaBytes
+    // @note: For validation failures bandwidth
+    // is encoded by VALIDATE_COPY_OP_FAILURE
+    if (verify_status != HSA_STATUS_SUCCESS) {
+      avg_bandwidth = VALIDATE_COPY_OP_FAILURE;
+      peak_bandwidth = VALIDATE_COPY_OP_FAILURE;
+    } else {
       avg_bandwidth = (double)data_size / avg_time / 1000 / 1000 / 1000;
       peak_bandwidth = (double)data_size / min_time / 1000 / 1000 / 1000;
     }
 
+    // Update computed bandwidth for the transaction
     trans.min_time_.push_back(min_time);
     trans.avg_time_.push_back(avg_time);
     trans.avg_bandwidth_.push_back(avg_bandwidth);
