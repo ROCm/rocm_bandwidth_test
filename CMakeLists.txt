@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.0)
+cmake_minimum_required(VERSION 3.6.3)
 
 #
 #  Setup build environment
@@ -147,7 +147,6 @@ get_version()
 # Bind the Major, Minor and Patch values
 set(BUILD_VERSION_MAJOR ${VERSION_MAJOR})
 set(BUILD_VERSION_MINOR ${VERSION_MINOR})
-set(BUILD_VERSION_PATCH ${VERSION_PATCH})
 
 # Basic Tool Chain Information
 message(" ")
@@ -182,24 +181,50 @@ install(TARGETS ${TEST_NAME} RUNTIME DESTINATION bin)
 
 # Add packaging directives for rocm_bandwidth_test
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_VENDOR "AMD")
+set(CPACK_PACKAGE_VENDOR "Advanced Micro Devices, Inc.")
 set(CPACK_PACKAGE_VERSION_MAJOR ${BUILD_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${BUILD_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${BUILD_VERSION_PATCH})
-set(CPACK_PACKAGE_CONTACT "Advanced Micro Devices Inc.")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Test to measure PciE bandwidth on ROCm platforms")
+set(CPACK_PACKAGE_CONTACT "TODO <Add a valid email id>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Diagnostic utility tool to measure PCIe bandwidth on ROCm platforms")
+
+#Make proper version for appending
+#Default Value is 99999, setting it first
+set(ROCM_VERSION_FOR_PACKAGE "99999")
+if(DEFINED ENV{ROCM_LIBPATCH_VERSION})
+  set(ROCM_VERSION_FOR_PACKAGE $ENV{ROCM_LIBPATCH_VERSION})
+endif()
 
 # Debian package specific variables
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
+if (DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
+   set(CPACK_DEBIAN_PACKAGE_RELEASE $ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
+else()
+   set(CPACK_DEBIAN_PACKAGE_RELEASE "local")
+endif()
 
 # RPM package specific variables
 set(CPACK_RPM_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
-
-# RPM package specific variables
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
   set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
 endif()
+if(DEFINED ENV{CPACK_RPM_PACKAGE_RELEASE})
+  set(CPACK_RPM_PACKAGE_RELEASE $ENV{CPACK_RPM_PACKAGE_RELEASE})
+else()
+  set(CPACK_RPM_PACKAGE_RELEASE "local")
+endif()
+
+#Set rpm distro
+if(CPACK_RPM_PACKAGE_RELEASE)
+  set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
+endif()
+
+#Prepare final version for the CAPACK use
+set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}.${ROCM_VERSION_FOR_PACKAGE}")
+
+#Set the names now using CPACK utility
+set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
 
 include(CPack)
-

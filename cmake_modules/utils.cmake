@@ -76,6 +76,7 @@ function( parse_version VERSION_STRING )
   if ( ${TOKEN_COUNT} GREATER 2 )
     list ( GET TOKENS 2 PATCH )
     set ( VERSION_PATCH ${PATCH} PARENT_SCOPE )
+    set ( BUILD_VERSION_PATCH "${PATCH}" CACHE STRING "Setting the patch version" FORCE )
   endif ()
 
   # Return if commit info is not present
