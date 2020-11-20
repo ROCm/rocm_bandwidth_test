@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.6.3)
-
 #
 #  Setup build environment
 #
@@ -166,14 +165,14 @@ add_executable(${TEST_NAME} ${Src})
 if(${hsa-runtime64_FOUND})
    target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
 else()
-   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB} ${ROCT_LIB} )
+   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB} ${ROCT_LIB})
 endif()
 target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 
 # Update linker flags to include RPATH
 # Add --enable-new-dtags to generate DT_RUNPATH
 if( DEFINED ENV{ROCM_RPATH})
-   set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}" )
+   set ( CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}")
 endif()
 
 # Add install directives for rocm_bandwidth_test
@@ -196,7 +195,7 @@ if(DEFINED ENV{ROCM_LIBPATCH_VERSION})
 endif()
 
 # Debian package specific variables
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
 if (DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
    set(CPACK_DEBIAN_PACKAGE_RELEASE $ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
@@ -205,7 +204,7 @@ else()
 endif()
 
 # RPM package specific variables
-set(CPACK_RPM_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev" )
+set(CPACK_RPM_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev")
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
   set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
 endif()
