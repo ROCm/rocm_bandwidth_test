@@ -274,7 +274,7 @@ void RocmBandwidthTest::PrintPerfMatrix(bool validate, bool peak, double* perf_m
     }
     
     if ((peak) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
-      std::cout << "Bdirectional copy peak bandwidth GB/s";
+      std::cout << "Bidirectional copy peak bandwidth GB/s";
     }
     
     if ((peak == false) && (req_copy_all_bidir_ == REQ_COPY_ALL_BIDIR)) {
