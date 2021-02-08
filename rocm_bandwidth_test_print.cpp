@@ -164,6 +164,10 @@ void RocmBandwidthTest::PrintTopology() {
       std::cout << "";
       std::cout.width(format);
       std::cout << "  Device  BDF:                            " << node.agent.bdf_id_ << std::endl;
+      std::cout.width(format);
+      std::cout << "";
+      std::cout.width(format);
+      std::cout << "  Device UUID:                            " << node.agent.uuid_ << std::endl;
     }
 
     // Print pool info
@@ -297,6 +301,7 @@ void RocmBandwidthTest::PrintAgentsList() {
     } else if (HSA_DEVICE_TYPE_GPU == node.agent.device_type_) {
       std::cout << "  Device Type:                            GPU" << std::endl;
       std::cout << "  Device  BDF:                            " << node.agent.bdf_id_ << std::endl;
+      std::cout << "  Device UUID:                            " << node.agent.uuid_ << std::endl;
     }
   }
   std::cout << std::endl;

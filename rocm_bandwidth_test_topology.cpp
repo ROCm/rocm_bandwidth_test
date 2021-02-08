@@ -191,7 +191,14 @@ hsa_status_t AgentInfo(hsa_agent_t agent, void* data) {
   status = hsa_agent_get_info(agent,
                       (hsa_agent_info_t)HSA_AMD_AGENT_INFO_PRODUCT_NAME,
                       (void *)&agent_info.name_[0]);
+  
+  // Aqcuire GPU specific properties
+  //    - BDF (a 32-bit integer)
+  //    - UUID (a 21 char string including nil)
   if (device_type == HSA_DEVICE_TYPE_GPU) {
+    status = hsa_agent_get_info(agent,
+                      (hsa_agent_info_t)HSA_AMD_AGENT_INFO_UUID,
+                      agent_info.uuid_);
     uint32_t bdf_id = 0;
     status = hsa_agent_get_info(agent,
                       (hsa_agent_info_t)HSA_AMD_AGENT_INFO_BDFID,
