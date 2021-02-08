@@ -68,6 +68,7 @@ typedef struct agent_info {
   hsa_agent_t agent_;
   hsa_device_type_t device_type_;
   char name_[64];     // Size specified in public header file
+  char uuid_[24];     // Unique ID of the device
   char bdf_id_[16];   // Bus (8-bits), Device (5-bits), Function (3-bits)
 
 } agent_info_t;
