@@ -367,6 +367,7 @@ void RocmBandwidthTest::DisplayDevInfo() const {
       std::cout << ",  " << agent_list_[idx].name_;
       bool gpuDevice = (agent_list_[idx].device_type_ == HSA_DEVICE_TYPE_GPU);
       if (gpuDevice) {
+        std::cout << ",  " << agent_list_[idx].uuid_;
         std::cout << ",  " << agent_list_[idx].bdf_id_;
       }
       std::cout << std::endl;
