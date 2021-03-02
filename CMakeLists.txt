@@ -80,6 +80,18 @@ endif()
 set(CMAKE_EXE_LINKER_FLAGS "-Wl,-Bdynamic -Wl,-z,noexecstack")
 set(CMAKE_SKIP_BUILD_RPATH TRUE)
 
+## Address Sanitize Flag
+if ( ${ADDRESS_SANITIZER} )
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+else ()
+    if (CMAKE_COMPILER_IS_GNUCC)
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-undefined")
+    else ()
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,error")
+    endif ()
+endif ()
+
 # Check Env vars
 if(NOT DEFINED CMAKE_BUILD_TYPE OR "${CMAKE_BUILD_TYPE}" STREQUAL "")
   if(DEFINED ENV{CMAKE_BUILD_TYPE})
