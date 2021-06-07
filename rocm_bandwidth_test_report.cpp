@@ -341,7 +341,7 @@ void RocmBandwidthTest::DisplayCopyTimeMatrix(bool peak) const {
   double* perf_matrix = new double[agent_index_ * agent_index_]();
   PopulatePerfMatrix(peak, perf_matrix);
   PrintPerfMatrix(false, peak, perf_matrix);
-  free(perf_matrix);
+  delete[] perf_matrix;
 }
 
 void RocmBandwidthTest::DisplayValidationMatrix() const {
@@ -349,7 +349,7 @@ void RocmBandwidthTest::DisplayValidationMatrix() const {
   double* perf_matrix = new double[agent_index_ * agent_index_]();
   PopulatePerfMatrix(true, perf_matrix);
   PrintPerfMatrix(true, true, perf_matrix);
-  free(perf_matrix);
+  delete[] perf_matrix;
 }
 
 void RocmBandwidthTest::DisplayDevInfo() const {
