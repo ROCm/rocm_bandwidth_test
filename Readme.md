@@ -40,7 +40,7 @@ The following simply lists the steps to build RocBandwidthTest
         // Assumes pwd is _ABSOLUTE_PATH_TO_RBT/roc_bandwidth_test/build
 
         e.g. cmake -DCMAKE_BUILD_TYPE="Debug"   \
-                   -DCMAKE_MODULE_PATH="_ABSOLUTE_PATH_TO_RBT/roc_bandwidth_test/cmake_modules"  \
+                   -DCMAKE_MODULE_PATH="_ABSOLUTE_PATH_TO_RBT/rocm_bandwidth_test/cmake_modules"  \
                    -DCMAKE_PREFIX_PATH="_ABSOLUTE_PATH_TO_ROCR_LIBS_"
                    ..
 
