@@ -116,7 +116,10 @@ hsa_status_t MemPoolInfo(hsa_amd_memory_pool_t pool, void* data) {
         return HSA_STATUS_SUCCESS;
       }
     } else {
-      if (is_fine_grained == false) {
+      // Skip pools that are one of the following:
+      //    Coarse grained
+      //    Fine grained with kernarg being false
+      if ((is_fine_grained == false) || (is_kernarg == false)) {
         return HSA_STATUS_SUCCESS;
       }
     }

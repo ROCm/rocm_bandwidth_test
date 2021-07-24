@@ -815,8 +815,8 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
   // Initialize version of the test
   version_.major_id = 2;
-  version_.minor_id = 5;
-  version_.step_id = 1;
+  version_.minor_id = 6;
+  version_.step_id = 0;
   version_.reserved = 0;
 
   // Test impact of sleep, temp code
