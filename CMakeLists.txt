@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.6.3)
 #  Setup build environment
 #
 #  1) Setup cmake variable CMAKE_PREFIX_PATH to point to a root
-#     directory that has ROCr header and ROCr, ROCt libraries
+#     directory that has ROCr header and ROCr libraries
 #     
-#     export CMAKE_PREFIX_PATH="Path to ROCr Header and ROCr, ROCt libraries"
+#     export CMAKE_PREFIX_PATH="Path to ROCr Header and ROCr libraries"
 #     
 #       e.g. export CMAKE_PREFIX_PATH=/opt/rocm/
 #       e.g. export CMAKE_PREFIX_PATH=${HOME}/git/compute/out/ubuntu-16.04/16.04/
@@ -120,7 +120,6 @@ elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
 endif()
 
 # Set project requirements
-set(ROC_THUNK_NAME "hsakmt")
 set(CORE_RUNTIME_NAME "hsa-runtime")
 set(CORE_RUNTIME_TARGET "${CORE_RUNTIME_NAME}64")
 
@@ -131,21 +130,23 @@ if(NOT DEFINED CMAKE_MODULE_PATH)
 endif()
 include(utils)
 
-# Making find_package(has-runtime64 Optional as it can fail when building old hsa
-# When find_package fails, then using old method of find_libraries for
-# searching the required libs for building RBT
-find_package(hsa-runtime64
-   PATHS  /opt/rocm )
+# Using find_package(has-runtime64 to find required header and library files
+# This scheme could fail when using older builds of ROCm. In such a case the
+# build system relies on user defined locations to find header and library files
+find_package(hsa-runtime64 PATHS /opt/rocm )
 if(${hsa-runtime64_FOUND})
   message("hsa-runtime64 found @  ${hsa-runtime64_DIR} ")
 else()
-  message("hsa-runtime64 NOT found Resolving to OLD Way")
-  find_path(ROCR_HDR hsa.h PATHS "/opt/rocm" PATH_SUFFIXES include/hsa  REQUIRED)
+  message("find_package did NOT find hsa-runtime64, finding it the OLD Way")
+  message("Looking for header files in ${ROCR_INC_DIR}")
+  message("Looking for library files in ${ROCR_LIB_DIR}")
+
+  # Search for ROCr header file in user defined locations
+  find_path(ROCR_HDR hsa.h PATHS ${ROCR_INC_DIR} "/opt/rocm" PATH_SUFFIXES include/hsa REQUIRED)
   INCLUDE_DIRECTORIES(${ROCR_HDR})
-  # Search for ROCr library file
-  find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
-  # Search for ROCt library file
-  find_library(ROCT_LIB ${ROC_THUNK_NAME} PATHS "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
+  
+  # Search for ROCr library file in user defined locations
+  find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS ${ROCR_LIB_DIR} "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
 endif()
 
 #
@@ -177,7 +178,7 @@ add_executable(${TEST_NAME} ${Src})
 if(${hsa-runtime64_FOUND})
    target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
 else()
-   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB} ${ROCT_LIB})
+   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB})
 endif()
 target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 
