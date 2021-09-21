@@ -217,7 +217,7 @@ else()
 endif()
 
 # RPM package specific variables
-set(CPACK_RPM_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev")
+set(CPACK_RPM_PACKAGE_REQUIRES "libstdc++6, hsa-rocr-dev")
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
   set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
 endif()
