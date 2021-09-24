@@ -208,7 +208,7 @@ if(DEFINED ENV{ROCM_LIBPATCH_VERSION})
 endif()
 
 # Debian package specific variables
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr-dev")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
 if (DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
    set(CPACK_DEBIAN_PACKAGE_RELEASE $ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
@@ -217,7 +217,7 @@ else()
 endif()
 
 # RPM package specific variables
-set(CPACK_RPM_PACKAGE_REQUIRES "libstdc++6, hsa-rocr-dev")
+set(CPACK_RPM_PACKAGE_REQUIRES "hsa-rocr")
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
   set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
 endif()
