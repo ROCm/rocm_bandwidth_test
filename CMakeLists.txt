@@ -184,7 +184,9 @@ target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 
 # Update linker flags to include RPATH
 # Add --enable-new-dtags to generate DT_RUNPATH
-if(DEFINED ENV{ROCM_RPATH})
+if(DEFINED ROCM_RPATH)
+	set(CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,${ROCM_RPATH}")
+elseif(DEFINED ENV{ROCM_RPATH})
    set(CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}")
 endif()
 
