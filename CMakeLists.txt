@@ -207,6 +207,11 @@ if(DEFINED ENV{ROCM_LIBPATCH_VERSION})
   set(ROCM_VERSION_FOR_PACKAGE $ENV{ROCM_LIBPATCH_VERSION})
 endif()
 
+#Set the License information
+set( CPACK_RPM_PACKAGE_LICENSE "NCSA" )
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
+install(FILES ${CPACK_RESOURCE_FILE_LICENSE} DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+
 # Debian package specific variables
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/RadeonOpenCompute/rocm_bandwidth_test")
