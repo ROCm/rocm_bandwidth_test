@@ -31,7 +31,7 @@ set(PROJECT_NAME "rocm-bandwidth-test")
 set(TEST_NAME "${PROJECT_NAME}")
 project(${PROJECT_NAME})
 
-
+include(GNUInstallDirs)
 # Build is not supported on Windows plaform
 if(WIN32)
   message("Windows platfom is not supported")
@@ -189,7 +189,7 @@ if(DEFINED ENV{ROCM_RPATH})
 endif()
 
 # Add install directives for rocm_bandwidth_test
-install(TARGETS ${TEST_NAME} RUNTIME DESTINATION bin)
+install(TARGETS ${TEST_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # Add packaging directives for rocm_bandwidth_test
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
@@ -210,7 +210,7 @@ endif()
 #Set the License information
 set( CPACK_RPM_PACKAGE_LICENSE "NCSA" )
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
-install(FILES ${CPACK_RESOURCE_FILE_LICENSE} DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+install(FILES ${CPACK_RESOURCE_FILE_LICENSE} DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 # Debian package specific variables
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libstdc++6, hsa-rocr")
@@ -224,7 +224,7 @@ endif()
 # RPM package specific variables
 set(CPACK_RPM_PACKAGE_REQUIRES "hsa-rocr")
 if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
-  set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+  set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "${CPACK_PACKAGING_INSTALL_PREFIX} ${CPACK_PACKAGING_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}")
 endif()
 if(DEFINED ENV{CPACK_RPM_PACKAGE_RELEASE})
   set(CPACK_RPM_PACKAGE_RELEASE $ENV{CPACK_RPM_PACKAGE_RELEASE})
