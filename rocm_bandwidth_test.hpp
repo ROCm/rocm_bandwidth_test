@@ -43,7 +43,7 @@
 #ifndef __ROC_BANDWIDTH_TEST_H__
 #define __ROC_BANDWIDTH_TEST_H__
 
-#include "hsa.h"
+#include "hsa/hsa.h"
 #include "base_test.hpp"
 #include "common.hpp"
 
