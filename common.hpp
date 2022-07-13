@@ -48,8 +48,8 @@
 #include <vector>
 #include <cmath>
 #include <stdio.h>
-#include "hsa.h"
-#include "hsa_ext_amd.h"
+#include "hsa/hsa.h"
+#include "hsa/hsa_ext_amd.h"
 
 using namespace std;
 
