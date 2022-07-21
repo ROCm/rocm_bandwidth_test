@@ -44,8 +44,11 @@
 #define __ROC_BANDWIDTH_TEST_H__
 
 #if(defined(RBT_HSA_VERSION_FLAT) && ((RBT_HSA_VERSION_FLAT) < RBT_HSA_VERSION_FILEREORG))
+//HSA package with out file reorganization . Its for backward compatibility
+//This will be deprecated from future release
 #include "hsa.h"
 #else
+//HSA package with file reorganization
 #include "hsa/hsa.h"
 #endif
 #include "base_test.hpp"
