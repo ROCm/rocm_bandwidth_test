@@ -140,7 +140,7 @@ if(${hsa-runtime64_FOUND})
   set(RBT_HSA_VERSION_MIN ${hsa-runtime64_VERSION_MINOR} )
   set(RBT_HSA_VERSION_PATCH ${hsa-runtime64_VERSION_PATCH} )
   #Rocm 5.3.0 will have hsa file reorg changes. The package version is 1055300
-  math(EXPR RBT_HSA_VERSION_FILEREORG "1055300")
+  math(EXPR RBT_HSA_VERSION_FILEREORG "1056300")
   add_compile_options(-DRBT_HSA_VERSION_FILEREORG=${RBT_HSA_VERSION_FILEREORG})
 
   if( (RBT_HSA_VERSION_MAJ GREATER 999) OR (RBT_HSA_VERSION_MIN GREATER 999) )
