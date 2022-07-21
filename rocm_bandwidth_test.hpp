@@ -43,7 +43,11 @@
 #ifndef __ROC_BANDWIDTH_TEST_H__
 #define __ROC_BANDWIDTH_TEST_H__
 
+#if(defined(RBT_HSA_VERSION_FLAT) && ((RBT_HSA_VERSION_FLAT) < RBT_HSA_VERSION_FILEREORG))
+#include "hsa.h"
+#else
 #include "hsa/hsa.h"
+#endif
 #include "base_test.hpp"
 #include "common.hpp"
 

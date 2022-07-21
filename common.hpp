@@ -48,8 +48,13 @@
 #include <vector>
 #include <cmath>
 #include <stdio.h>
+#if(defined(RBT_HSA_VERSION_FLAT) && ((RBT_HSA_VERSION_FLAT) < RBT_HSA_VERSION_FILEREORG))
+#include "hsa.h"
+#include "hsa_ext_amd.h"
+#else
 #include "hsa/hsa.h"
 #include "hsa/hsa_ext_amd.h"
+#endif
 
 using namespace std;
 
