@@ -140,9 +140,12 @@ if(${hsa-runtime64_FOUND})
   set(RBT_HSA_VERSION_MAJ ${hsa-runtime64_VERSION_MAJOR} )
   set(RBT_HSA_VERSION_MIN ${hsa-runtime64_VERSION_MINOR} )
   set(RBT_HSA_VERSION_PATCH ${hsa-runtime64_VERSION_PATCH} )
-  #with File reorg changes /opt/rocm-ver/include/hsa/ will have actual hsa header files
-  #/opt/rocm-ver/hsa/include/hsa/ will have wrapper header files.
-  #Rocm 5.3.0 will have hsa file reorg changes. The corresponding package version is 1056300
+  #with File reorg changes
+  # Actual header files  /opt/rocm-ver/include/hsa/
+  # Wrapper header file  /opt/rocm-ver/hsa/include/hsa/
+  # Rocm 5.3.0 will have hsa file reorg changes. Corresponding HSA package version is 1056300
+  # if hsa package version is greater than or equal to file reorg version ,use actual files
+  # else use wrapper files. For Default/failure cases use actual files
   math(EXPR RBT_HSA_VERSION_FILEREORG "1056300")
   add_compile_options(-DRBT_HSA_VERSION_FILEREORG=${RBT_HSA_VERSION_FILEREORG})
 
