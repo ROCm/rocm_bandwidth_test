@@ -49,12 +49,12 @@
 #include <cmath>
 #include <stdio.h>
 #if(defined(RBT_HSA_VERSION_FLAT) && ((RBT_HSA_VERSION_FLAT) < RBT_HSA_VERSION_FILEREORG))
-//HSA package with out file reorganization. Its for backward compatibility
-//This will be deprecated from future release
+// Hsa package with out file reorganization
+// This is for backward compatibility and will be deprecated from future release
 #include "hsa.h"
 #include "hsa_ext_amd.h"
 #else
-//HSA package with file reorganization
+// Hsa package with file reorganization
 #include "hsa/hsa.h"
 #include "hsa/hsa_ext_amd.h"
 #endif
