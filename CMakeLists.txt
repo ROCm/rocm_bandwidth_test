@@ -4,9 +4,9 @@ cmake_minimum_required(VERSION 3.6.3)
 #
 #  1) Setup cmake variable CMAKE_PREFIX_PATH to point to a root
 #     directory that has ROCr header and ROCr libraries
-#     
+#
 #     export CMAKE_PREFIX_PATH="Path to ROCr Header and ROCr libraries"
-#     
+#
 #       e.g. export CMAKE_PREFIX_PATH=/opt/rocm/
 #       e.g. export CMAKE_PREFIX_PATH=${HOME}/git/compute/out/ubuntu-16.04/16.04/
 #
@@ -135,16 +135,37 @@ include(utils)
 # build system relies on user defined locations to find header and library files
 find_package(hsa-runtime64 PATHS /opt/rocm )
 if(${hsa-runtime64_FOUND})
+  # hsa-runtime config files will provide the include path via INSTALL_INTERFACE
   message("hsa-runtime64 found @  ${hsa-runtime64_DIR} ")
+  set(RBT_HSA_VERSION_MAJ ${hsa-runtime64_VERSION_MAJOR} )
+  set(RBT_HSA_VERSION_MIN ${hsa-runtime64_VERSION_MINOR} )
+  set(RBT_HSA_VERSION_PATCH ${hsa-runtime64_VERSION_PATCH} )
+  # With file reorg changes
+  # Actual header files  /opt/rocm-ver/include/hsa/
+  # Wrapper header file  /opt/rocm-ver/hsa/include/hsa/
+  # Rocm 5.3.0 will have Hsa file reorg changes. Corresponding Hsa package version is 1056300
+  # If hsa package version greater than or equal to file reorg version,use hsa/hsa.h else use hsa.h
+  math(EXPR RBT_HSA_VERSION_FILEREORG "1056300")
+  add_compile_options(-DRBT_HSA_VERSION_FILEREORG=${RBT_HSA_VERSION_FILEREORG})
+
+  if( (RBT_HSA_VERSION_MAJ GREATER 999) OR (RBT_HSA_VERSION_MIN GREATER 999) )
+    # Build will fail ,if package version is invalid
+    message(FATAL_ERROR "RBT hsa-runtime64: Too big HSA runtime version number(s)" )
+  else() # if valid hsa  package version
+     # find the hsa package version and set flat version
+    math(EXPR RBT_HSA_VERSION_FLAT  "(${RBT_HSA_VERSION_MAJ}*1000000+${RBT_HSA_VERSION_MIN}*1000+${RBT_HSA_VERSION_PATCH})" )
+    add_compile_options(-DRBT_HSA_VERSION_FLAT=${RBT_HSA_VERSION_FLAT})
+  endif()
 else()
   message("find_package did NOT find hsa-runtime64, finding it the OLD Way")
   message("Looking for header files in ${ROCR_INC_DIR}")
   message("Looking for library files in ${ROCR_LIB_DIR}")
 
   # Search for ROCr header file in user defined locations
-  find_path(ROCR_HDR hsa.h PATHS ${ROCR_INC_DIR} "/opt/rocm" PATH_SUFFIXES include/hsa REQUIRED)
+  # Since the search is for hsa/hsa.h and the default include is "hsa/hsa.h", this will support all version of rocm
+  find_path(ROCR_HDR hsa/hsa.h PATHS ${ROCR_INC_DIR} "/opt/rocm" PATH_SUFFIXES include REQUIRED)
   INCLUDE_DIRECTORIES(${ROCR_HDR})
-  
+
   # Search for ROCr library file in user defined locations
   find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS ${ROCR_LIB_DIR} "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
 endif()
