@@ -798,9 +798,11 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
   req_concurrent_copy_unidir_ = REQ_INVALID;
   
   access_matrix_ = NULL;
+  link_hops_matrix_ = NULL;
   link_type_matrix_ = NULL;
   active_agents_list_ = NULL;
   link_weight_matrix_ = NULL;
+  direct_access_matrix_ = NULL;
   
   init_ = false;
   latency_ = false;
@@ -855,10 +857,23 @@ RocmBandwidthTest::RocmBandwidthTest(int argc, char** argv) : BaseTest() {
 
 RocmBandwidthTest::~RocmBandwidthTest() {
 
-  delete access_matrix_;
-  delete link_type_matrix_;
-  delete link_weight_matrix_;
-  delete active_agents_list_;
+  if (access_matrix_)
+	delete[] access_matrix_;
+  
+  if (direct_access_matrix_)
+    delete[] direct_access_matrix_;
+
+  if (link_hops_matrix_)
+    delete[] link_hops_matrix_;
+
+  if (link_type_matrix_)
+    delete[] link_type_matrix_;
+  
+  if (link_weight_matrix_)
+    delete[] link_weight_matrix_;
+  
+  if (active_agents_list_)
+    delete[] active_agents_list_;
 }
 
 std::string RocmBandwidthTest::GetVersion() const {
