@@ -42,11 +42,9 @@ endif()
 SET(CMAKE_VERBOSE_MAKEFILE on)
 
 # Compiler Preprocessor definitions.
-add_definitions(-D__linux__)
 add_definitions(-DUNIX_OS)
 add_definitions(-DLINUX)
 add_definitions(-D__AMD64__)
-add_definitions(-D__x86_64__)
 add_definitions(-DAMD_INTERNAL_BUILD)
 add_definitions(-DLITTLEENDIAN_CPU=1)
 add_definitions(-DHSA_LARGE_MODEL=)
