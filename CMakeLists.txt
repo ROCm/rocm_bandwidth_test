@@ -76,7 +76,8 @@ if("$ENV{CXX}" STREQUAL "/usr/bin/clang++")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ferror-limit=1000000")
 endif()
 
-set(CMAKE_EXE_LINKER_FLAGS "-Wl,-Bdynamic -Wl,-z,noexecstack")
+# Use the EXE linker flags from build scripts as well
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bdynamic -Wl,-z,noexecstack")
 set(CMAKE_SKIP_BUILD_RPATH TRUE)
 
 ## Address Sanitize Flag
