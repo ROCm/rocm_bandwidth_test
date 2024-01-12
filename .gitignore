@@ -1,0 +1,28 @@
+# NOTE! Please use 'git ls-files -i --exclude-standard'
+# command after changing this file, to see if there are
+# any tracked files which get ignored after the change.
+
+# VisualStudioCode
+.vscode/
+
+# Below files generated via CMake
+
+# Build directory
+build/
+
+# CMake cache
+.cache/
+
+# Simulated SYSFS - for early development or debug
+device/
+
+# Misc
+__pycache__
+README
+README.html
+
+# do NOT ignore these files
+!.clang-format
+!.clang-tidy
+!.clangd
+

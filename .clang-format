@@ -1,0 +1,46 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 100
+IndentCaseBlocks: true
+IndentWidth:     4
+MaxEmptyLinesToKeep: 2
+SpaceAfterTemplateKeyword: false
+SpacesBeforeTrailingComments: 4
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+Standard:        Latest
+
+# These must go in order from most to least specific.
+# Priority number goes from lowest to highest.
+# Higher the number - lower the include position.
+IncludeCategories:
+    # "*"
+  - Regex:           '^".*"'
+    Priority:        1
+    CaseSensitive:   false
+    # <sys/*.h> and <*.h> together
+  - Regex:           '^<sys/.*\.h>'
+    Priority:        2
+    CaseSensitive:   false
+    # <*/*.h> after <*>
+  - Regex:           '^<.*/.*\.h>'
+    Priority:        4
+    CaseSensitive:   false
+    # <sys/*.h> and <*.h> together
+  - Regex:           '^<.*\.h>'
+    Priority:        2
+    CaseSensitive:   false
+    # <*>
+  - Regex:           '^<.*'
+    Priority:        3
+    CaseSensitive:   false
+    # *
+  - Regex:           '.*'
+    Priority:        5
+    CaseSensitive:   false
+
+IndentAccessModifiers: true
+...
+
