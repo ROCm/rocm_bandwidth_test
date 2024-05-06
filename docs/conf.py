@@ -14,7 +14,7 @@ extensions = ["rocm_docs"]
 external_toc_path = "./sphinx/_toc.yml"
 
 html_title = f"ROCm Bandwidth Test Documentation"
-project = "ROCmBandwidthTest"
+project = "rocm_bandwidth_test"
 author = "Advanced Micro Devices, Inc."
 copyright = (
     "Copyright (c) 2024 Advanced Micro Devices, Inc. All rights reserved."
