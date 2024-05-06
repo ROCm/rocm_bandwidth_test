@@ -1,2 +1,6 @@
 * @bill-shuzhou-liu @dmitrii-galantsev @charis-poag-amd @oliveiradan
-
+# Documentation files
+docs/* @ROCm/rocm-documentation @bill-shuzhou-liu @dmitrii-galantsev @charis-poag-amd @oliveiradan
+*.md @ROCm/rocm-documentation @bill-shuzhou-liu @dmitrii-galantsev @charis-poag-amd @oliveiradan
+*.rst @ROCm/rocm-documentation @bill-shuzhou-liu @dmitrii-galantsev @charis-poag-amd @oliveiradan
+.readthedocs.yaml @ROCm/rocm-documentation @bill-shuzhou-liu @dmitrii-galantsev @charis-poag-amd @oliveiradan
