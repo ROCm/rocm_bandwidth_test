@@ -1,4 +1,7 @@
 
+.. meta::
+  :description: Install ROCm Bandwidth Test
+  :keywords: install, rocm bandwidth test, AMD, ROCm
 
 
 Building the environment
@@ -10,7 +13,7 @@ To build ROCmBandwidthTest, users must ensure that the build platform has the fo
 Build the procedure
 ====================
 
-The following simply lists the following steps to build ROCmBandwidthTest.
+This section lists the steps to build ROCmBandwidthTest.
 
 1. Create a build directory in the project folder - `roc_bandwidth_test`.
 
