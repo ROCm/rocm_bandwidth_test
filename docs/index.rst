@@ -5,7 +5,7 @@
 
 
 ===================================
-ROCm Bandwidth Test Documentation
+ROCm Bandwidth Test documentation
 ===================================
 
 ROCm Bandwidth Test is a ROCm application for reporting system information.
