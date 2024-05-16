@@ -8,7 +8,7 @@ To build ROCmBandwidthTest, users must ensure that the build platform has the fo
 
 
 Build the procedure
-----------------------
+====================
 
 The following simply lists the following steps to build ROCmBandwidthTest.
 
