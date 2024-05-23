@@ -69,5 +69,5 @@ This section lists the steps to build ROCmBandwidthTest.
 
 .. NOTE::
 
-All executables will be found in `<build_directory>/bin` folder
+All executables will be found in the `<build_directory>` folder.
 
