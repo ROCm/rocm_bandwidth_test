@@ -43,22 +43,15 @@
 #ifndef ROC_BANDWIDTH_TEST_COMMON_HPP
 #define ROC_BANDWIDTH_TEST_COMMON_HPP
 
+#include "hsa/hsa.h"
+#include "hsa/hsa_ext_amd.h"
+
 #include <stdio.h>
 
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
-#if (defined(RBT_HSA_VERSION_FLAT) && ((RBT_HSA_VERSION_FLAT) < RBT_HSA_VERSION_FILEREORG))
-// Hsa package with out file reorganization
-// This is for backward compatibility and will be deprecated from future release
-#include "hsa.h"
-#include "hsa_ext_amd.h"
-#else
-// Hsa package with file reorganization
-#include "hsa/hsa.h"
-#include "hsa/hsa_ext_amd.h"
-#endif
 
 using namespace std;
 
