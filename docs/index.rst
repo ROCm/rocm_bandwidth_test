@@ -21,6 +21,10 @@ For more details, see `GitHub. <https://github.com/ROCm/rocm_bandwidth_test/tree
   .. grid-item-card:: Install
 
        * :doc:`ROCm Bandwidth Test installation <./install/install>`
+
+  .. grid-item-card:: How to
+
+       * :doc:` Use ROCm Bandwidth Test <./install/install>`
  
 
 To contribute to the documentation, refer to
