@@ -95,3 +95,66 @@ Run the test to collect performance characteristics of unidirectional and bidire
 .. code-block::
 
       <shell_prompt> ./rocm_bandwidth_test
+
+The above command will issue unidirectional and bidirectional copy operations among all the devices of the platform.
+
+Host-To-Device (H2D) Bandwidth
+
+Run the test to collect performance characteristics of H2D copy operations of a given ROCm platform.
+
+<shell_prompt> ./rocm_bandwidth_test -s <cpu_dev_IdX>,<cpu_dev_IdY>,- - - -d <gpu_dev_IdM>,
+<gpu_dev_IdN>, - - -
+
+The above command will issue unidirectional copy operations between Src and Dst devices. Specifically it will pair each device of Src List it
+with each device of Dst List i.e. it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that user has
+determined access from Src device to Dst device exists by consulting device access matrix.
+
+
+Device-To-Host (D2H) Bandwidth
+
+Run the test to collect performance characteristics of D2H copy operations of a given Rocm platform.
+
+<shell_prompt> ./rocm_bandwidth_test -s <gpu_dev_IdX>,<gpu_dev_IdY>,- - - -d <cpu_dev_IdM>,
+<cpu_dev_IdN>, - - -
+
+The above command will issue unidirectional copy operations between Src and Dst devices. Specifically it will pair each device of Src List it
+with each device of Dst List i.e. it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that user has
+determined access from Src device to Dst device exists by consulting device access matrix.
+
+
+Device-To-Device (D2D) Bandwidth
+
+Run the test to collect performance characteristics of D2D copy operations of a given Rocm platform.
+
+<shell_prompt> ./rocm_bandwidth_test -s <gpu_dev_IdX>,<gpu_dev_IdY>,- - - -d <gpu_dev_IdM>,<gpu_
+dev_IdN>, - - -
+
+The above command will issue copy unidirectional operations between Src and Dst devices. Specifically it will pair each device of Src List it
+with each device of Dst List i.e. it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that user has
+determined access from Src device to Dst device exists by consulting device access matrix.
+
+Bidirectional Bandwidth
+
+Run the test to collect performance characteristics of bidirectional copy operations of a given Rocm platform.
+
+<shell_prompt> ./rocm_bandwidth_test -b <device_IdX>,<device_IdY>,<device_IdZ>,- - -
+
+The above command will issue bidirectional copy operations among all the devices of the list. In the example given it will issue copy(x,x),
+copy(x,y), copy(x,z), copy(y,x), copy(y,y), copy(y,z), copy(z,x), copy(z,y) and copy(z,z) operations. The devices can be either be all Gpu's
+or Gpu/Cpu combination.
+
+Unidirectional All Devices Bandwidth
+
+Run the test to collect performance characteristics of unidirectional copy operations involving ALL devices of a given Rocm platform.
+
+<shell_prompt> ./rocm_bandwidth_test -a
+
+The above command will issue unidirectional copy operations among all the devices of the platform.
+
+Bidirectional All Devices Bandwidth
+
+Run the test to collect performance characteristics of bidirectional copy operations involving ALL devices of a given Rocm platform.
+
+<shell_prompt> ./rocm_bandwidth_test -A
+
+The above command will issue bidirectional copy operations among all the devices of the platform.
