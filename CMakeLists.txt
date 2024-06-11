@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6.3)
+cmake_minimum_required(VERSION 3.15)
 #
 #  Setup build environment
 #
@@ -39,7 +39,8 @@ if(WIN32)
 endif()
 
 # Flag to enable / disable verbose output.
-SET(CMAKE_VERBOSE_MAKEFILE on)
+option(CMAKE_VERBOSE_MAKEFILE "Enable verbose output" ON)
+option(CMAKE_EXPORT_COMPILE_COMMANDS "Export compile commands for linters and autocompleters" ON)
 
 # Compiler Preprocessor definitions.
 add_definitions(-DUNIX_OS)
@@ -133,42 +134,9 @@ include(utils)
 # Using find_package(has-runtime64 to find required header and library files
 # This scheme could fail when using older builds of ROCm. In such a case the
 # build system relies on user defined locations to find header and library files
-find_package(hsa-runtime64 PATHS /opt/rocm )
-if(${hsa-runtime64_FOUND})
-  # hsa-runtime config files will provide the include path via INSTALL_INTERFACE
-  message("hsa-runtime64 found @  ${hsa-runtime64_DIR} ")
-  set(RBT_HSA_VERSION_MAJ ${hsa-runtime64_VERSION_MAJOR} )
-  set(RBT_HSA_VERSION_MIN ${hsa-runtime64_VERSION_MINOR} )
-  set(RBT_HSA_VERSION_PATCH ${hsa-runtime64_VERSION_PATCH} )
-  # With file reorg changes
-  # Actual header files  /opt/rocm-ver/include/hsa/
-  # Wrapper header file  /opt/rocm-ver/hsa/include/hsa/
-  # Rocm 5.3.0 will have Hsa file reorg changes. Corresponding Hsa package version is 1056300
-  # If hsa package version greater than or equal to file reorg version,use hsa/hsa.h else use hsa.h
-  math(EXPR RBT_HSA_VERSION_FILEREORG "1056300")
-  add_compile_options(-DRBT_HSA_VERSION_FILEREORG=${RBT_HSA_VERSION_FILEREORG})
-
-  if( (RBT_HSA_VERSION_MAJ GREATER 999) OR (RBT_HSA_VERSION_MIN GREATER 999) )
-    # Build will fail ,if package version is invalid
-    message(FATAL_ERROR "RBT hsa-runtime64: Too big HSA runtime version number(s)" )
-  else() # if valid hsa  package version
-     # find the hsa package version and set flat version
-    math(EXPR RBT_HSA_VERSION_FLAT  "(${RBT_HSA_VERSION_MAJ}*1000000+${RBT_HSA_VERSION_MIN}*1000+${RBT_HSA_VERSION_PATCH})" )
-    add_compile_options(-DRBT_HSA_VERSION_FLAT=${RBT_HSA_VERSION_FLAT})
-  endif()
-else()
-  message("find_package did NOT find hsa-runtime64, finding it the OLD Way")
-  message("Looking for header files in ${ROCR_INC_DIR}")
-  message("Looking for library files in ${ROCR_LIB_DIR}")
-
-  # Search for ROCr header file in user defined locations
-  # Since the search is for hsa/hsa.h and the default include is "hsa/hsa.h", this will support all version of rocm
-  find_path(ROCR_HDR hsa/hsa.h PATHS ${ROCR_INC_DIR} "/opt/rocm" PATH_SUFFIXES include REQUIRED)
-  INCLUDE_DIRECTORIES(${ROCR_HDR})
-
-  # Search for ROCr library file in user defined locations
-  find_library(ROCR_LIB ${CORE_RUNTIME_TARGET} PATHS ${ROCR_LIB_DIR} "/opt/rocm" PATH_SUFFIXES lib lib64 REQUIRED)
-endif()
+find_package(hsa-runtime64 PATHS /opt/rocm REQUIRED)
+# hsa-runtime config files will provide the include path via INSTALL_INTERFACE
+message("hsa-runtime64 found @  ${hsa-runtime64_DIR} ")
 
 #
 # Set the package version for the test. It is critical that this
@@ -196,11 +164,7 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} Src)
 
 # Build and link the test program
 add_executable(${TEST_NAME} ${Src})
-if(${hsa-runtime64_FOUND})
-   target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
-else()
-   target_link_libraries(${TEST_NAME} PRIVATE ${ROCR_LIB})
-endif()
+target_link_libraries(${TEST_NAME} PRIVATE hsa-runtime64::hsa-runtime64)
 target_link_libraries(${TEST_NAME} PRIVATE c stdc++ dl pthread rt)
 
 # Update linker flags to include RPATH
