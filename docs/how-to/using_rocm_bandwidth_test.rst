@@ -37,7 +37,7 @@ The test will filter out certain operations that are either considered not suppo
 
 .. Note::
 
-Users can build it from source available at github. Currently access to source is limited to approved users. To request permission, contact the author of this page.
+Users can build it from source available at GitHub. Currently access to source is limited to approved users. To request permission, file a ticket `here. <https://github.com/ROCm/ROCm/issues/new/choose>`_
 
 Print the Help screen test
 ==========================
