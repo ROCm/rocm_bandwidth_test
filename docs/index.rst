@@ -24,7 +24,7 @@ For more details, see `GitHub. <https://github.com/ROCm/rocm_bandwidth_test/tree
 
   .. grid-item-card:: How to
 
-       * :doc:`Use ROCm Bandwidth Test <./how-to/using_rocm_bandwidth_test.rst>`
+       * :doc:`Use ROCm Bandwidth test <./how-to/using_rocm_bandwidth_test.rst>`
  
 
 To contribute to the documentation, refer to
