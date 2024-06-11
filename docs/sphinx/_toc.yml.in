@@ -9,7 +9,7 @@ subtrees:
     
 - caption: How-to
   entries:
-  - file: How-to/using-rocm-bandwidth-test.rst
+  - file: how-to/using_rocm_bandwidth_test.rst
     title: Use ROCm Bandwidth Test
 
 - caption: About
