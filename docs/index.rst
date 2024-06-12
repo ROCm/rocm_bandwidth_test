@@ -8,9 +8,9 @@
 ROCm Bandwidth Test documentation
 ===================================
 
-ROCm Bandwidth Test is a ROCm application for reporting system information.
+ROCm Bandwidth Test (RBT) is a ROCm application for reporting system information.
 
-ROCmBandwidthTest is designed to capture the performance characteristics of buffer copying and kernel read/write operations. The Help screen of the benchmark shows various options one can use in initiating copy/read/writer operations.
+ROCm Bandwidth Test is designed to capture the performance characteristics of buffer copying and kernel read/write operations. The Help screen of the benchmark shows various options one can use in initiating copy/read/writer operations.
 In addition, users can also query the topology of the system in terms of memory pools and their agents.
 
 For more details, see `GitHub. <https://github.com/ROCm/rocm_bandwidth_test/tree/master>`_
