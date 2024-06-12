@@ -27,7 +27,7 @@ ROCm Repo Forest
 
 The following sections show how users can use the test to get performance data for various scenarios.
 
-.. Note:: 
+**NOTE**
 
 The test will filter out certain operations that are considered not supported. These include:
 
@@ -36,7 +36,7 @@ The test will filter out certain operations that are considered not supported. T
 
 .. Note::
 
-Users can build it from source available at GitHub. Currently access to source is limited to approved users. To request permission, file a ticket `here. <https://github.com/ROCm/ROCm/issues/new/choose>`_
+Users can build RBT from source available at `GitHub <https://github.com/ROCm/rocm_bandwidth_test>`_. Currently access to source is limited to approved users. To request permission, file a ticket `here. <https://github.com/ROCm/ROCm/issues/new/choose>`_
 
 Print Help screen test
 ==========================
@@ -50,7 +50,7 @@ Run the following test to print the Help screen,
 Print ROCm topology test
 =========================
 
-Run the following test to print topology of the various devices, their allocatable memory, and access paths,
+Run the following test to print topology of various devices, their allocatable memory, and access paths,
 
 .. code-block::
 
@@ -77,7 +77,7 @@ The above command will print Version of RBT and time taken to perform copy for g
 Data path validation test
 ==============================
 
-Run the test to validate data path from a source device to destination device by by copying data,
+Run this test to validate data path from a source device to destination device by by copying data,
 
 .. code-block::
 
@@ -94,7 +94,7 @@ The above command will print the following four details:
 Default unidirectional & bidirectional all devices bandwidth test
 ==================================================================
 
-Run the test to collect performance characteristics of unidirectional and bidirectional copy operations involving ALL devices of a given Rocm platform.
+Run the following test to collect performance characteristics of unidirectional and bidirectional copy operations involving ALL devices of a given Rocm platform.
 
 .. code-block::
 
@@ -105,7 +105,7 @@ The above command will issue unidirectional and bidirectional copy operations am
 Host-to-Device (H2D) bandwidth
 ================================
 
-Run the test to collect performance characteristics of H2D copy operations of a given ROCm platform.
+Run the test below to collect performance characteristics of H2D copy operations of a given ROCm platform.
 
 .. code-block::
             
@@ -120,7 +120,7 @@ determined access from Src device to Dst device exists by consulting device acce
 Device-to-Host (D2H) bandwidth
 ===============================
 
-Run the test to collect performance characteristics of D2H copy operations of a given ROCm platform.
+Run the following test to collect performance characteristics of D2H copy operations of a given ROCm platform.
 
 .. code-block::
 
@@ -133,7 +133,7 @@ The above command will issue unidirectional copy operations between Src and Dst 
 Device-to-Device (D2D) bandwidth
 ==================================
 
-Run the test to collect performance characteristics of D2D copy operations of a given ROCm platform.
+Run the test below to collect performance characteristics of D2D copy operations of a given ROCm platform.
 
 .. code-block::
 
@@ -147,7 +147,7 @@ determined access from Src device to Dst device exists by consulting device acce
 Bidirectional bandwidth
 ===========================
 
-Run the test to collect performance characteristics of bidirectional copy operations of a given ROCm platform.
+Run the following test to collect performance characteristics of bidirectional copy operations of a given ROCm platform.
 
 .. code-block::
 
@@ -160,7 +160,7 @@ or GPU/CPU combination.
 Unidirectional all devices bandwidth
 =====================================
 
-Run the test to collect performance characteristics of unidirectional copy operations involving ALL devices of a given ROCm platform.
+Run the following test to collect performance characteristics of unidirectional copy operations involving ALL devices of a given ROCm platform.
 
 .. code-platform::
 
@@ -171,7 +171,7 @@ The above command will issue unidirectional copy operations among all the device
 Bidirectional all devices bandwidth
 =======================================
 
-Run the test to collect performance characteristics of bidirectional copy operations involving ALL devices of a given ROCm platform.
+Run the test below to collect performance characteristics of bidirectional copy operations involving ALL devices of a given ROCm platform.
 
 .. code-block::
 
