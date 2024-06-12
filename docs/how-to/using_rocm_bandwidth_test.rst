@@ -29,7 +29,7 @@ The following sections show how users can use the test to get performance data f
 
 .. Note:: 
 
-The test will filter out certain operations that are either considered not supported or don't make sense. These include:
+The test will filter out certain operations that are either considered not supported. These include:
 
 * No copy requests when both Src and Dst devices are CPU.
 * No copy requests when both Src and Dst devices are Same GPU device and the request is either a partial or a full bidirectional copy operation.
@@ -38,10 +38,10 @@ The test will filter out certain operations that are either considered not suppo
 
 Users can build it from source available at GitHub. Currently access to source is limited to approved users. To request permission, file a ticket `here. <https://github.com/ROCm/ROCm/issues/new/choose>`_
 
-Print the Help screen test
+Print Help screen test
 ==========================
 
-Run the test to print the Help screen,
+Run the following test to print the Help screen,
 
 .. code-block:: shell
 
@@ -50,18 +50,23 @@ Run the test to print the Help screen,
 Print ROCm topology test
 =========================
 
-Run the test to print topology of the various devices, their allocatable memory and access paths,
+Run the following test to print topology of the various devices, their allocatable memory, and access paths,
 
 .. code-block::
 
       <shell_prompt> ./rocm_bandwidth_test -t
 
-The above command will print four things: Version of RBT, List of devices and their allocatable memory, Access matrix and Numa Distance among the various devices.
+The above command will print the following: 
+
+* Version of RBT
+* List of devices and their allocatable memory
+* Access matrix 
+* Numa Distance among the various devices
 
 Copy overhead determination test
 ===============================
 
-Run the test to determine overhead of copy path - copy sizes from ONE byte to hundreds of bytes in increments of power of 2
+Run the following test to determine overhead of copy path - copy sizes from ONE byte to hundreds of bytes in increments of power of 2
 
 .. code-block::
 
@@ -122,9 +127,7 @@ Run the test to collect performance characteristics of D2H copy operations of a 
             <shell_prompt> ./rocm_bandwidth_test -s <gpu_dev_IdX>,<gpu_dev_IdY>,- - - -d <cpu_dev_IdM>,
             <cpu_dev_IdN>, - - -
 
-The above command will issue unidirectional copy operations between Src and Dst devices. Specifically it will pair each device of Src List it
-with each device of Dst List. For example, it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that users have
-determined access from Src device to Dst device exists by consulting device access matrix.
+The above command will issue unidirectional copy operations between Src and Dst devices. Specifically, it will pair each device of Src List with each device of Dst List. For example, it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that users have  determined access from Src device to Dst device exists by consulting device access matrix.
 
 
 Device-To-Device (D2D) Bandwidth
@@ -151,8 +154,8 @@ Run the test to collect performance characteristics of bidirectional copy operat
             <shell_prompt> ./rocm_bandwidth_test -b <device_IdX>,<device_IdY>,<device_IdZ>,- - -
 
 The above command will issue bidirectional copy operations among all the devices of the list. In the example given it will issue copy(x,x),
-copy(x,y), copy(x,z), copy(y,x), copy(y,y), copy(y,z), copy(z,x), copy(z,y) and copy(z,z) operations. The devices can be either be all Gpu's
-or Gpu/Cpu combination.
+copy(x,y), copy(x,z), copy(y,x), copy(y,y), copy(y,z), copy(z,x), copy(z,y) and copy(z,z) operations. The devices can be either be all GPUs
+or GPU/CPU combination.
 
 Unidirectional All Devices Bandwidth
 =====================================
