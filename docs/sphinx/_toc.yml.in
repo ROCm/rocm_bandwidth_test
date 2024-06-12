@@ -10,7 +10,7 @@ subtrees:
 - caption: How to
   entries:
   - file: how-to/using_rocm_bandwidth_test.rst
-    title: Use ROCm Bandwidth test
+    title: Use ROCm Bandwidth Test
 
 - caption: About
   entries:
