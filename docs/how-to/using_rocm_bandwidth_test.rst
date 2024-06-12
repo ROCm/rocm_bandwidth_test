@@ -29,7 +29,7 @@ The following sections show how users can use the test to get performance data f
 
 .. Note:: 
 
-The test will filter out certain operations that are either considered not supported. These include:
+The test will filter out certain operations that are considered not supported. These include:
 
 * No copy requests when both Src and Dst devices are CPU.
 * No copy requests when both Src and Dst devices are Same GPU device and the request is either a partial or a full bidirectional copy operation.
