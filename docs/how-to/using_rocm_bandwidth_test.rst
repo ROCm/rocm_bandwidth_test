@@ -1,4 +1,6 @@
-
+.. meta::
+  :description: Using ROCm Bandwidth Test
+  :keywords: test, rocm bandwidth test, AMD, ROCm
 
 
 Using ROCm Bandwidth Test
