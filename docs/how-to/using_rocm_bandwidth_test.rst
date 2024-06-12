@@ -102,7 +102,7 @@ Run the test to collect performance characteristics of unidirectional and bidire
 
 The above command will issue unidirectional and bidirectional copy operations among all the devices of the platform.
 
-Host-To-Device (H2D) Bandwidth
+Host-to-Device (H2D) bandwidth
 ================================
 
 Run the test to collect performance characteristics of H2D copy operations of a given ROCm platform.
@@ -117,7 +117,7 @@ with each device of Dst List i.e. it will launch sizeof(SrcList) x sizeof(DstLis
 determined access from Src device to Dst device exists by consulting device access matrix.
 
 
-Device-To-Host (D2H) Bandwidth
+Device-to-Host (D2H) bandwidth
 ===============================
 
 Run the test to collect performance characteristics of D2H copy operations of a given ROCm platform.
@@ -130,7 +130,7 @@ Run the test to collect performance characteristics of D2H copy operations of a 
 The above command will issue unidirectional copy operations between Src and Dst devices. Specifically, it will pair each device of Src List with each device of Dst List. For example, it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that users have  determined access from Src device to Dst device exists by consulting device access matrix.
 
 
-Device-To-Device (D2D) Bandwidth
+Device-to-Device (D2D) bandwidth
 ==================================
 
 Run the test to collect performance characteristics of D2D copy operations of a given ROCm platform.
@@ -144,7 +144,7 @@ The above command will issue copy unidirectional operations between Src and Dst 
 with each device of Dst List i.e. it will launch sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that users have
 determined access from Src device to Dst device exists by consulting device access matrix.
 
-Bidirectional Bandwidth
+Bidirectional bandwidth
 ===========================
 
 Run the test to collect performance characteristics of bidirectional copy operations of a given ROCm platform.
@@ -157,7 +157,7 @@ The above command will issue bidirectional copy operations among all the devices
 copy(x,y), copy(x,z), copy(y,x), copy(y,y), copy(y,z), copy(z,x), copy(z,y) and copy(z,z) operations. The devices can be either be all GPUs
 or GPU/CPU combination.
 
-Unidirectional All Devices Bandwidth
+Unidirectional all devices bandwidth
 =====================================
 
 Run the test to collect performance characteristics of unidirectional copy operations involving ALL devices of a given ROCm platform.
@@ -168,7 +168,7 @@ Run the test to collect performance characteristics of unidirectional copy opera
 
 The above command will issue unidirectional copy operations among all the devices of the platform.
 
-Bidirectional All Devices Bandwidth
+Bidirectional all devices bandwidth
 =======================================
 
 Run the test to collect performance characteristics of bidirectional copy operations involving ALL devices of a given ROCm platform.
