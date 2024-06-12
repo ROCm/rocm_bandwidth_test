@@ -4,8 +4,7 @@
 Using ROCm Bandwidth Test
 --------------------------
 
-The application rocm_bandwidth_test was developed to allow users discover the performance characteristics of Host-To-Device, Device-To-Host and Device-To-Device copy operations on a ROCm platform. The application can be run on any compliant Rocm platform. The application
-provides various options for users to experiment the cost of various copy operations in both unidirectional and bidirectional modes. Users can query the various options that are supported by giving the `-h` option.
+The application ROCm Bandwidth Test (RBT) was developed to allow users discover the performance characteristics of Host-To-Device, Device-To-Host, and Device-to-Device copy operations on a ROCm platform. The application can be run on any compliant ROCm platform. The application provides various options for users to experiment the cost of various copy operations in both unidirectional and bidirectional modes. Users can query the various options that are supported by giving the `-h` option.
 
 Building ROCm Bandwidth Test
 =============================
@@ -26,11 +25,11 @@ ROCm Repo Forest
       cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DROCR_LIB_DIR=$ROCR_LIB_DIR -
       DROCR_INC_DIR=$ROCR_INC_DIR ..
 
-The following sections show how users can use the test to get performance data for various scenarios:
+The following sections show how users can use the test to get performance data for various scenarios.
 
 .. Note:: 
 
-The test will filter out certain operations that are either considered not supported or don't make sense. These include the following:
+The test will filter out certain operations that are either considered not supported or don't make sense. These include:
 
 * No copy requests when both Src and Dst devices are CPU.
 * No copy requests when both Src and Dst devices are Same GPU device and the request is either a partial or a full bidirectional copy operation.
