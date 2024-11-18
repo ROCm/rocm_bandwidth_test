@@ -18,7 +18,7 @@ The code is open source and hosted at: https://github.com/ROCm/rocm_bandwidth_te
 
   .. grid-item-card:: Install
 
-       * :ref:`installing-rbt`
+       * :ref:`Installation <installing-rbt>`
 
   .. grid-item-card:: How to
 
