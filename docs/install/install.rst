@@ -3,6 +3,7 @@
   :description: ROCm Bandwidth Test is a ROCm application for reporting system information
   :keywords: Install ROCm Bandwidth Test, Build ROCm Bandwidth Test, Install RBT, Build RBT
 
+.. _installing-rbt:
 
 Installing ROCm Bandwidth Test
 -----------------------------------

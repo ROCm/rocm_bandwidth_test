@@ -2,6 +2,7 @@
   :description: ROCm Bandwidth Test is a ROCm application for reporting system information
   :keywords: ROCm bandwidth test usage, RBT usage, How to use RBT, How to use ROCm bandwidth test, ROCm bandwidth test user guide, RBT user guide, RBT user manual
 
+.. _using-rbt:
 
 Using ROCm Bandwidth Test
 --------------------------

@@ -18,11 +18,11 @@ The code is open source and hosted at: https://github.com/ROCm/rocm_bandwidth_te
 
   .. grid-item-card:: Install
 
-       * :doc:`Installation <./install/install>`
+       * :ref:`installing-rbt`
 
   .. grid-item-card:: How to
 
-      * :doc:`<./how-to/using_rocm_bandwidth_test>`
+      * :ref:`using-rbt`
 
 
 To contribute to the documentation, refer to
