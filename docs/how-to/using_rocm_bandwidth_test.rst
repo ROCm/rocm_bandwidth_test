@@ -1,6 +1,6 @@
 .. meta::
   :description: ROCm Bandwidth Test is a ROCm application for reporting system information
-  :keywords: ROCm bandwidth test usage, RBT usage, How to use RBT, How to use ROCm bandwidth test, ROCm bandwidth test user guide, RBT user guide, RBT user manual
+  :keywords: ROCm bandwidth test usage, RBT usage, Use RBT, Use ROCm bandwidth test, ROCm bandwidth test user guide, RBT user guide, RBT user manual, RBT tests, ROCm bandwidth test tests
 
 .. _using-rbt:
 
@@ -10,25 +10,6 @@ Using ROCm Bandwidth Test
 RBT allows you to discover the performance characteristics of Host-To-Device, Device-To-Host, and Device-to-Device copy operations on a ROCm platform.
 RBT can be run on any ROCm-compliant platform and it provides various options to experiment with the various copy operation's costs in both unidirectional and bidirectional modes.
 You can query the various supported options using the `-h` option.
-
-Building ROCm Bandwidth Test
-=============================
-
-ROCm Repo Forest
-
-.. code-block::
-
-      cd ~/git/compute/tests/rocm_bandwidth_test
-      Execute build_rocm_bandwidth_test.sh script
-      Clone of Github Repo:
-      cd rocm_bandwidth_test
-      mkdir build
-      cd build
-      export BUILD_TYPE=Debug | Release
-      export ROCR_INC_DIR=<Path To ROCr Header Files>
-      export ROCR_LIB_DIR=<Path To ROCr Library Files>
-      cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DROCR_LIB_DIR=$ROCR_LIB_DIR -
-      DROCR_INC_DIR=$ROCR_INC_DIR ..
 
 Tests
 =========
@@ -116,8 +97,7 @@ To collect performance characteristics of Host-to-Device (H2D) copy operations o
             <gpu_dev_IdN>, - - -
 
 The preceding command issues unidirectional copy operations between Src and Dst devices. To be specific, it pairs each device from the Src list
-with each device from the Dst list. This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that user has
-determined access from Src device to Dst device exists by consulting device access matrix.
+with each device from the Dst list. This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. Ensure to validate the Src and Dst devices, their device numbers, and the connection between them by looking at the device matrix (or topology) output.
 
 Device-to-Host bandwidth
 ##########################
@@ -130,7 +110,7 @@ To collect performance characteristics of Device-to-Host (D2H) copy operations o
             <cpu_dev_IdN>, - - -
 
 The preceding command issues unidirectional copy operations between Src and Dst devices. To be specific, it pairs each device from the Src list with each device from the Dst List.
-This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that users have  determined access from Src device to Dst device exists by consulting device access matrix.
+This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. Ensure to validate the Src and Dst devices, their device numbers, and the connection between them by looking at the device matrix (or topology) output.
 
 Device-to-Device bandwidth
 ############################
@@ -143,7 +123,7 @@ To collect performance characteristics of Device-to-Device (D2D) copy operations
             dev_IdN>, - - -
 
 The preceding command issues unidirectional copy operations between Src and Dst devices. To be specific, it pairs each device from the Src list with each device from the Dst List.
-This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. It is assumed that users have  determined access from Src device to Dst device exists by consulting device access matrix.
+This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. Ensure to validate the Src and Dst devices, their device numbers, and the connection between them by looking at the device matrix (or topology) output.
 
 Bidirectional bandwidth
 ###########################

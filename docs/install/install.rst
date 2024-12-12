@@ -15,7 +15,7 @@ Build
 
 Here are the steps to build RBT:
 
-  1. Create a build directory in the project folder - ``roc_bandwidth_test``.
+  1. Create a build directory in the project folder - ``rocm_bandwidth_test``.
 
   .. code-block:: shell
 
@@ -37,7 +37,7 @@ Here are the steps to build RBT:
     # Note : Observe that both include & lib folder are under common path (_ABSOLUTE_PATH_TO_ROCR_LIBS_)
 
     # Builds Debug version
-    # Assumes pwd is _ABSOLUTE_PATH_TO_RBT/roc_bandwidth_test/build
+    # Assumes pwd is _ABSOLUTE_PATH_TO_RBT/rocm_bandwidth_test/build
 
     cmake -DCMAKE_BUILD_TYPE="Debug"   \
         -DCMAKE_MODULE_PATH="_ABSOLUTE_PATH_TO_RBT/rocm_bandwidth_test/cmake_modules"  \
@@ -45,7 +45,7 @@ Here are the steps to build RBT:
         ..
 
     # Builds Release version - default
-    # Assumes pwd is _ABSOLUTE_PATH_TO_RBT/roc_bandwidth_test/build
+    # Assumes pwd is _ABSOLUTE_PATH_TO_RBT/rocm_bandwidth_test/build
     cmake -DCMAKE_MODULE_PATH="_ABSOLUTE_PATH_TO_RBT/rocm_bandwidth_test/cmake_modules"  \
         -DCMAKE_PREFIX_PATH="_ABSOLUTE_PATH_TO_ROCR_LIBS_"
 
