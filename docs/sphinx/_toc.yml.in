@@ -5,12 +5,11 @@ subtrees:
 - caption: Install
   entries:
   - file: install/install.rst
-    title: ROCm Bandwidth Test installation 
-    
+    title: Installation
+
 - caption: How to
   entries:
   - file: how-to/using_rocm_bandwidth_test.rst
-    title: Use ROCm Bandwidth Test
 
 - caption: About
   entries:
