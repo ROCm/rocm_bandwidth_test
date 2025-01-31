@@ -182,7 +182,7 @@ set(CPACK_PACKAGE_VENDOR "Advanced Micro Devices, Inc.")
 set(CPACK_PACKAGE_VERSION_MAJOR ${BUILD_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${BUILD_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${BUILD_VERSION_PATCH})
-set(CPACK_PACKAGE_CONTACT "TODO <Add a valid email id>")
+set(CPACK_PACKAGE_CONTACT "ROCm Bandwidth Test support <rocm-bandwidth-test.support@amd.com>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Diagnostic utility tool to measure PCIe bandwidth on ROCm platforms")
 
 # Make proper version for appending
