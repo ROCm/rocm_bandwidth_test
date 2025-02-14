@@ -140,7 +140,7 @@ Unidirectional bandwidth test for all devices
 
 To collect performance characteristics of unidirectional copy operations involving `all` devices on a given ROCm platform, use:
 
-.. code-platform:: shell
+.. code-block:: shell
 
       $ ./rocm_bandwidth_test -a
 
