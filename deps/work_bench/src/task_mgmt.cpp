@@ -294,7 +294,7 @@ auto TaskHolder_t::is_interrupted() const -> bool
         return false;
     }
 
-    return !running_task->is_interrupted();
+    return running_task->is_interrupted();
 }
 
 
@@ -305,7 +305,7 @@ auto TaskHolder_t::was_exception() const -> bool
         return false;
     }
 
-    return !running_task->was_exception();
+    return running_task->was_exception();
 }
 
 auto TaskHolder_t::should_interrupt() const -> bool
@@ -315,7 +315,7 @@ auto TaskHolder_t::should_interrupt() const -> bool
         return false;
     }
 
-    return !running_task->should_interrupt();
+    return running_task->should_interrupt();
 }
 
 

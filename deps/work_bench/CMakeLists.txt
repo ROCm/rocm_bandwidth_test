@@ -109,6 +109,7 @@ else()
         ERROR_QUIET
     )
 endif()
+add_cppcheck(${AMD_TARGET_LIBNAME})
 
 if(GIT_COMMIT_HASH_LONG STREQUAL "" OR GIT_BRANCH STREQUAL "")
     message(WARNING "[[ No commit hash/branch were found. ]]")
@@ -128,7 +129,7 @@ generate_export_header(${AMD_TARGET_LIBNAME})
 ## Build Library
 set(EXTERNAL_BASE_INCLUDE_DIRS ${AMD_EXTERNAL_DEPS_DIRECTORY})
 set(DYNAMIC_LIB_MGMT_INCLUDE_DIRS ${AMD_EXTERNAL_DEPS_DIRECTORY}/dynamic_lib_mgmt/include)
-set(DYNAMIC_LIB_LIBRARIES "libamd_dynlib_mgmt")
+##set(DYNAMIC_LIB_LIBRARIES "libamd_dynlib_mgmt")
 ##target_include_directories(${AMD_TARGET_LIBNAME} SYSTEM BEFORE PUBLIC ${WORK_BENCH_INCLUDE})
 
 target_include_directories(${AMD_TARGET_LIBNAME} ${AMD_WORK_BENCH_LIBRARY_TYPE} SYSTEM BEFORE PUBLIC ${BOOST_STACKTRACE_INCLUDE_DIRECTORIES})
@@ -140,7 +141,7 @@ if(NOT AMD_WORK_BENCH_EXTERNAL_PLUGIN_BUILD)
     target_link_libraries(${AMD_TARGET_LIBNAME} PRIVATE dl)
     target_link_libraries(${AMD_TARGET_LIBNAME} PUBLIC ${JTHREAD_LIBRARIES})
 
-    # non-emscripten builds need to link with libcurl
+    # Builds need to link with libcurl ("CURL::libcurl")
     target_link_libraries(${AMD_TARGET_LIBNAME} ${AMD_WORK_BENCH_LIBRARY_TYPE} CURL::libcurl)
 
     target_include_directories(${AMD_TARGET_LIBNAME} ${AMD_WORK_BENCH_LIBRARY_TYPE} ${BACKTRACE_INCLUDE_DIRECTORIES})

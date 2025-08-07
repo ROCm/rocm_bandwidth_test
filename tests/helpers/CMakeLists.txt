@@ -27,14 +27,17 @@ cmake_minimum_required(VERSION 3.20)
 
 
 #
-project(${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME})
-
-add_library(${PROJECT_NAME} STATIC
-    src/tst_plugins.cpp
-)
+project(${AMD_TEST_PROJECT_HELPERS_TARGET_NAME})
 
 #
 message(STATUS "  >> Building... Component: " ${PROJECT_NAME} " ]] ...")
+
+#
+add_library(${PROJECT_NAME} STATIC
+    src/tst_helpers_common.cpp
+    src/tst_helpers_file.cpp
+    src/tst_helpers_utils.cpp
+)
 
 
 #
@@ -63,7 +66,6 @@ target_link_libraries(${PROJECT_NAME}
 #target_link_libraries(${PROJECT_NAME} 
 #    PUBLIC 
 #        ${AMD_TEST_PROJECT_COMMON_TARGET_NAME} 
-#        ${AMD_TEST_PROJECT_HELPERS_TARGET_NAME} 
 #)
 
 set_target_properties(${PROJECT_NAME} 
@@ -75,6 +77,10 @@ set_target_properties(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME} 
     PROPERTIES 
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+add_dependencies(${PROJECT_NAME} 
+    ${AMD_TEST_PROJECT_LINK_LIBRARIES}
 )
 
 

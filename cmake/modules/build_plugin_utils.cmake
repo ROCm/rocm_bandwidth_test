@@ -78,6 +78,7 @@ macro(add_amd_work_bench_plugin)
     # Enable required compiler flags
     setup_unity_build(${AMD_WORK_BENCH_PLUGIN_NAME})
     setup_compiler_flags(${AMD_WORK_BENCH_PLUGIN_NAME})
+    add_cppcheck(${AMD_WORK_BENCH_PLUGIN_NAME})
 
     # Configure build properties
     set_target_properties(${AMD_WORK_BENCH_PLUGIN_NAME}

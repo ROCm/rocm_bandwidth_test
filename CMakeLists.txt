@@ -58,6 +58,8 @@ set(AMD_APP_CMAKE_DIRECTORY ${AMD_APP_BASE_DIRECTORY}/cmake)
 set(AMD_APP_CMAKE_MODULES_DIRECTORY ${AMD_APP_BASE_DIRECTORY}/cmake/modules)
 list(APPEND CMAKE_MODULE_PATH "${AMD_APP_CMAKE_MODULES_DIRECTORY}")
 set(AMD_EXTERNAL_DEPS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/external)
+set(AMD_3RD_PARTY_DEPS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/3rd_party)
+set(AMD_WORKBENCH_DEPS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/work_bench)
 
 
 #
@@ -69,6 +71,9 @@ set(AMD_EXTERNAL_DEPS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/external)
 #  - "libwork_bench"
 set(AMD_TARGET_NAME "rocm_bandwidth_test")
 set(AMD_TARGET_LIBNAME "libamd_work_bench")
+set(${AMD_TARGET_NAME}_3RD_PARTY_TARGET_LIST "")
+set(${AMD_TARGET_NAME}_3RD_PARTY_UNIT_TEST_TARGET_LIST "")
+
 option(AMD_APP_DEBUG_INFO_COMPRESS          "Compressed debug information"                                                      ON)
 option(AMD_APP_BUILD_PLUGINS                "Build plugins"                                                                     ON)
 option(AMD_APP_STORE_PLUGINS_IN_SHARE       "Store the plugins in the share/${AMD_TARGET_NAME}/plugins"                         OFF)
@@ -89,6 +94,13 @@ option(AMD_APP_ROCM_BUILD_PACKAGE           "Force build/package under ROCm envi
 option(AMD_APP_STANDALONE_BUILD_PACKAGE     "Build standalone package (not ROCm based)"                                         OFF)
 option(AMD_APP_ENGINEERING_BUILD_PACKAGE    "Build and create a BZ2 Engineering package (ROCm & Standalone are ignored)"        OFF)
 option(AMD_APP_DEBUG_BUILD_INFO             "Build messages/info (extra info for Developers)"                                   OFF)
+option(AMD_APP_ENABLE_CPPCHECK_WARNINGS     "CppCheck static analysis warnings (for Developers)"                                OFF)
+
+
+include(CMakeDependentOption)
+cmake_dependent_option(AMD_APP_ENABLE_TESTS_COVERAGE    "Enable test coverage generation"   ON     "AMD_APP_BUILD_TESTS"   OFF)
+cmake_dependent_option(AMD_APP_BUILD_PLUGIN_TESTS       "Build plugin(s) unit tests"        ON     "AMD_APP_BUILD_TESTS"   OFF)
+
 
 # Setup build utils
 include(${AMD_APP_CMAKE_DIRECTORY}/build_utils.cmake)
@@ -180,11 +192,11 @@ add_build_definitions()
 #
 # Packaging and Install
 setup_packaging_options()
-setup_install_target()
+setup_uninstall_target()
 add_bundled_libraries()
 
 #
-add_subdirectory(deps/external/dynamic_lib_mgmt)
+##add_subdirectory(deps/external/dynamic_lib_mgmt)
 add_subdirectory(deps/work_bench)
 add_subdirectory(main)
 
@@ -204,10 +216,11 @@ endif()
 
 # Build unit tests
 if(AMD_APP_BUILD_TESTS)
-    if (NOT TARGET unit_tests)
+    set(AMD_TEST_TARGET_NAME "rbt_unit_tests")
+    set(AMD_TEST_LINK_LIBRARIES "${AMD_TARGET_LIBNAME}")
+    if (NOT TARGET "${AMD_TEST_TARGET_NAME}")
         enable_testing()
-        add_custom_target(unit_tests)
-        add_subdirectory(tests EXCLUDE_FROM_ALL)
+        add_subdirectory(tests)
     endif()
 endif()
 

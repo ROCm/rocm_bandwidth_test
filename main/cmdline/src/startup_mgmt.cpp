@@ -484,7 +484,7 @@ auto create_directories() -> bool
     for (const auto& path : paths::kALL_DEFAULT_PATHS) {
         for (const auto& folder_path : path->all()) {
             try {
-                if (wb_fs::is_path_write_allowed(folder_path)) {
+                if (wb_fs::is_path_write_allowed(folder_path.parent_path())) {
                     wb_fs::is_create_directories(folder_path);
                 }
             } catch (...) {
