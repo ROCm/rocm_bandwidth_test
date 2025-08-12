@@ -432,12 +432,12 @@ function(verify_dependency_support module_name module_path commit_hash)
         ##  Get the commit hash even for tags
         ##  Run from top-level where .gitmodules file exists
         execute_process(
-          COMMAND ${CMAKE_GIT_EXECUTABLE} rev-parse "${commit_hash}^{commit}"
-          WORKING_DIRECTORY "${MODULE_ABSOLUTE_PATH}"
-          OUTPUT_VARIABLE OUTPUT_EXPECTED_HASH
-          OUTPUT_STRIP_TRAILING_WHITESPACE
-          ERROR_QUIET
-          RESULT_VARIABLE RESULT_GIT_RESOLVE
+            COMMAND ${CMAKE_GIT_EXECUTABLE} rev-parse "${commit_hash}^{commit}"
+            WORKING_DIRECTORY "${MODULE_ABSOLUTE_PATH}"
+            OUTPUT_VARIABLE OUTPUT_EXPECTED_HASH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+            RESULT_VARIABLE RESULT_GIT_RESOLVE
         )
         if(NOT RESULT_GIT_RESOLVE EQUAL 0)
             message(FATAL_ERROR ">> Could not resolve required Git reference: '${module_name}' : '${commit_hash}' ...")
@@ -446,12 +446,12 @@ function(verify_dependency_support module_name module_path commit_hash)
 
         ##  Get the current commit hash in the submodule directory
         execute_process(
-          COMMAND ${CMAKE_GIT_EXECUTABLE} rev-parse HEAD
-          WORKING_DIRECTORY "${MODULE_ABSOLUTE_PATH}"
-          OUTPUT_VARIABLE OUTPUT_CURRENT_HASH
-          OUTPUT_STRIP_TRAILING_WHITESPACE
-          ERROR_QUIET
-          RESULT_VARIABLE RESULT_GIT_CURRENT
+            COMMAND ${CMAKE_GIT_EXECUTABLE} rev-parse HEAD
+            WORKING_DIRECTORY "${MODULE_ABSOLUTE_PATH}"
+            OUTPUT_VARIABLE OUTPUT_CURRENT_HASH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+            RESULT_VARIABLE RESULT_GIT_CURRENT
         )
         if(NOT RESULT_GIT_CURRENT EQUAL 0)
             message(FATAL_ERROR ">> Could not determine current Git commit hash in submodule directory: '${module_name}' at: '${MODULE_ABSOLUTE_PATH}'.")
@@ -467,12 +467,12 @@ function(verify_dependency_support module_name module_path commit_hash)
                 message(STATUS ">> Trying to 'checkout' the submodule '${module_name}' reference: '${OUTPUT_EXPECTED_HASH}' at: '${MODULE_ABSOLUTE_PATH}' ...")
 
                 execute_process(
-                  COMMAND ${CMAKE_GIT_EXECUTABLE} checkout "${commit_hash}"
-                  WORKING_DIRECTORY "${MODULE_ABSOLUTE_PATH}"
-                  RESULT_VARIABLE RESULT_GIT_CHECKOUT
-                  ERROR_VARIABLE ERROR_GIT_CHECKOUT
-                  OUTPUT_QUIET
-                  ERROR_STRIP_TRAILING_WHITESPACE
+                    COMMAND ${CMAKE_GIT_EXECUTABLE} checkout "${commit_hash}"
+                    WORKING_DIRECTORY "${MODULE_ABSOLUTE_PATH}"
+                    RESULT_VARIABLE RESULT_GIT_CHECKOUT
+                    ERROR_VARIABLE ERROR_GIT_CHECKOUT
+                    OUTPUT_QUIET
+                    ERROR_STRIP_TRAILING_WHITESPACE
                 )
                 if(NOT RESULT_GIT_CHECKOUT EQUAL 0)
                     message(FATAL_ERROR ">> Could not 'checkout' the submodule '${module_name}' reference: '${commit_hash}'. Error: '${ERROR_GIT_CHECKOUT}'")
@@ -516,14 +516,232 @@ function(verify_dependency_support module_name module_path commit_hash)
         endif()
 
         ##  Checks/add module subdirectory if all checks pass
-        ##  Create a unique binary dir based on module name to avoid conflicts using a sanitized name
-        #string(MAKE_C_IDENTIFIER "${module_name}" MODULE_NAME_C_ID)
-        #set(SUBMODULE_BINARY_DIR "${CMAKE_BINARY_DIR}/${MODULE_NAME_C_ID}_external")
-        #add_subdirectory("${MODULE_ABSOLUTE_PATH}" "${SUBMODULE_BINARY_DIR}")
         set(${module_name}_MODULE_ADDED TRUE PARENT_SCOPE)
         message(STATUS ">> Adding submodule subdirectory: '${module_name}' at: '${MODULE_ABSOLUTE_PATH}' ...")
         message(STATUS ">> Submodule '${module_name}' successfully added ...")
     endif()
+endfunction()
+
+function(set_rpath)
+    find_program(PATCHELF_EXECUTABLE patchelf HINTS /usr/bin /bin /usr/local/bin)
+    if(NOT PATCHELF_EXECUTABLE)
+        message(FATAL_ERROR ">> 'patchelf' was not found. Please install it or specify its location.")
+    endif()
+
+    set(options "")
+    set(oneValueArgs TARGET_OR_BINARY_FILE MODE RPATH)
+    set(multiValueArgs "")
+    cmake_parse_arguments(ARG
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    if(NOT DEFINED ARG_TARGET_OR_BINARY_FILE)
+        message(FATAL_ERROR ">> set_rpath(): ARG_TARGET_OR_BINARY_FILE argument is required. ")
+    endif()
+
+    if(NOT DEFINED ARG_MODE)
+        message(FATAL_ERROR ">> set_rpath(): MODE argument is required (opts: 'RUN_NOW' or 'POST_BUILD').")
+    endif()
+
+   if(NOT DEFINED ARG_RPATH)
+        set(LOCAL_RPATH "'\$ORIGIN'")
+    else()
+        set(LOCAL_RPATH ${ARG_RPATH})
+    endif()
+
+   if(ARG_MODE STREQUAL "RUN_NOW")
+        if(NOT EXISTS "${ARG_TARGET_OR_BINARY_FILE}")
+            developer_status_message("DEVEL" ">> set_rpath(): In 'RUN_NOW' mode, could not find file: ${ARG_TARGET_OR_BINARY_FILE} ...")
+            return()
+        endif()
+
+        developer_status_message("DEVEL" ">> Running 'patchelf' on: ${ARG_TARGET_OR_BINARY_FILE} ...")
+        execute_process(
+            COMMAND ${PATCHELF_EXECUTABLE} --set-rpath ${LOCAL_RPATH} "${ARG_TARGET_OR_BINARY_FILE}"
+            RESULT_VARIABLE RESULT_PATCHELF
+            OUTPUT_VARIABLE OUTPUT_PATCHELF
+            ERROR_VARIABLE ERROR_PATCHELF
+        )
+
+        if(NOT RESULT_PATCHELF EQUAL 0)
+            developer_status_message("DEVEL" ">> Could not run 'patchelf' for: '${ARG_TARGET_OR_BINARY_FILE}': \n"
+                                             "  >> Result: ${RESULT_PATCHELF} \n"
+                                             "  >> Output: ${OUTPUT_PATCHELF} \n"
+                                             "  >> Error: ${ERROR_PATCHELF}")
+        else()
+            developer_status_message("DEVEL" ">> Successfully patched 'RPATH' for '${ARG_TARGET_OR_BINARY_FILE}'.")
+        endif()
+
+    elseif(ARG_MODE STREQUAL "POST_BUILD")
+        if(NOT TARGET ${ARG_TARGET_OR_BINARY_FILE})
+            developer_status_message("DEVEL" ">> set_rpath(): In 'POST_BUILD' mode, could not find target: '${ARG_TARGET_OR_BINARY_FILE}' ...")
+        endif()
+
+        add_custom_command(
+            TARGET ${ARG_TARGET_OR_BINARY_FILE}
+            POST_BUILD
+            COMMAND ${PATCHELF_EXECUTABLE} --set-rpath ${LOCAL_RPATH} "$<TARGET_FILE:${ARG_TARGET_OR_BINARY_FILE}>"
+            COMMENT ">> Patching 'RPATH' for: '${ARG_TARGET_OR_BINARY_FILE}' to: '${LOCAL_RPATH}'"
+            VERBATIM
+        )
+        developer_status_message("DEVEL" ">> set_rpath(): post-build command to patch 'RPATH' for target: '${ARG_TARGET_OR_BINARY_FILE}', added ...")
+
+    else()
+        message(FATAL_ERROR "set_rpath: Invalid MODE '${ARG_MODE}'. Must be 'RUN_NOW' or 'POST_BUILD'.")
+    endif()
+endfunction()
+
+function(binary_classify_in_target_directory)
+    set(options TRY_RPATH_SET KEEP_ACCEPTABLE_RPATH APPEND_EXISTING_RPATH)
+    set(oneValueArgs DIRECTORY_PATH EXECUTABLES_LIST SHARED_LIBRARIES_LIST STATIC_LIBRARIES_LIST)
+    set(multiValueArgs "")
+    cmake_parse_arguments(ARG
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    if(NOT DEFINED ARG_DIRECTORY_PATH)
+        message(FATAL_ERROR ">> binary_classify_in_target_directory(): DIRECTORY_PATH argument is required.")
+    endif()
+    if(NOT EXISTS "${ARG_DIRECTORY_PATH}")
+        message(FATAL_ERROR ">> binary_classify_in_target_directory(): Could not find directory: ${ARG_DIRECTORY_PATH}")
+    endif()
+    if(NOT ARG_EXECUTABLES_LIST OR NOT ARG_SHARED_LIBRARIES_LIST OR NOT ARG_STATIC_LIBRARIES_LIST)
+        message(FATAL_ERROR ">> binary_classify_in_target_directory():  ARG_EXECUTABLES_LIST, ARG_SHARED_LIBRARIES_LIST, ARG_STATIC_LIBRARIES_LIST are required.")
+    endif()
+
+    find_program(FILE_EXECUTABLE file REQUIRED)
+    find_program(READELF_EXECUTABLE readelf REQUIRED)
+    find_program(EGREP_EXECUTABLE egrep REQUIRED)
+    if(NOT FILE_EXECUTABLE OR NOT READELF_EXECUTABLE OR NOT EGREP_EXECUTABLE)
+        message(FATAL_ERROR ">> Skipping 'binary_classify' for: ${ARG_DIRECTORY_PATH}. Could not find 'file/readelf/egrep' utilities ...")
+    endif()
+
+    developer_status_message("DEVEL" ">> Classifying binaries in directory: ${ARG_DIRECTORY_PATH} ...")
+    file(GLOB_RECURSE BINARY_FILES LIST_DIRECTORIES false "${ARG_DIRECTORY_PATH}/*")
+
+    ##  Note:   These are the default rules/policies for 'RPATH'
+    set(acceptable_default_rpath "\$ORIGIN")
+    set(executable_expected_rpath "\$ORIGIN/../lib:\$ORIGIN/../lib/llvm/lib")
+    set(shared_library_expected_rpath "\$ORIGIN:\$ORIGIN/llvm/lib")
+    ##
+
+    set(executables_list "")
+    set(shared_libraries_list "")
+    set(static_libraries_list "")
+    foreach(CURRENT_BINARY ${BINARY_FILES})
+        developer_status_message("DEVEL" ">> Classifying binary: ${CURRENT_BINARY} ...")
+        execute_process(
+            COMMAND ${FILE_EXECUTABLE} "${CURRENT_BINARY}"
+            RESULT_VARIABLE RESULT_FILE_CHECK
+            OUTPUT_VARIABLE OUTPUT_FILE_CHECK
+            ERROR_VARIABLE ERROR_FILE_CHECK
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        if(NOT RESULT_FILE_CHECK EQUAL 0)
+            developer_status_message("DEVEL" ">> Could not classify binary: ${CURRENT_BINARY}. Error: ${ERROR_FILE_CHECK}")
+            message(WARNING )
+            continue()
+        else()
+            if(OUTPUT_FILE_CHECK MATCHES "ELF.*executable")
+                list(APPEND executables_list "${CURRENT_BINARY}")
+
+                if(ARG_TRY_RPATH_SET)
+                    developer_status_message("DEVEL" ">> Trying to set 'RPATH' for *executable*: '${CURRENT_BINARY}' ...")
+                    execute_process(
+                        COMMAND ${READELF_EXECUTABLE} -d "${CURRENT_BINARY}"
+                        COMMAND ${EGREP_EXECUTABLE} -i "Library runpath"
+                        OUTPUT_VARIABLE OUTPUT_READELF
+                    )
+
+                    set(current_rpath "")
+                    if(OUTPUT_READELF MATCHES ".*\\(RUNPATH\\).*Library runpath: \\[(.*)\\]")
+                        set(current_rpath "${CMAKE_MATCH_1}")
+                    endif()
+
+                    ##
+                    ##  Note: As the executable should do the heavy lifting, we are less permissive.
+                    if(NOT "${current_rpath}" STREQUAL "${executable_expected_rpath}")
+                        developer_status_message("DEVEL" ">> Setting 'RPATH' for *executable*: '${CURRENT_BINARY}' ...")
+                        developer_status_message("DEVEL" "  >> from: '${current_rpath}' to: '${executable_expected_rpath}' ...")
+
+                        set_rpath(
+                            TARGET_OR_BINARY_FILE "${CURRENT_BINARY}"
+                            MODE "RUN_NOW"
+                            RPATH "${executable_expected_rpath}"
+                        )
+                    endif()
+                endif()
+
+            elseif(OUTPUT_FILE_CHECK MATCHES "ELF.*shared object")
+                list(APPEND shared_libraries_list "${CURRENT_BINARY}")
+
+                if(ARG_TRY_RPATH_SET)
+                    developer_status_message("DEVEL" ">> Trying to set 'RPATH' for *shared library*: '${CURRENT_BINARY}' ...")
+                    execute_process(
+                        COMMAND ${READELF_EXECUTABLE} -d "${CURRENT_BINARY}"
+                        COMMAND ${EGREP_EXECUTABLE} -i "Library runpath"
+                        OUTPUT_VARIABLE OUTPUT_READELF
+                    )
+
+                    set(current_rpath "")
+                    if(OUTPUT_READELF MATCHES ".*\\(RUNPATH\\).*Library runpath: \\[(.*)\\]")
+                        set(current_rpath "${CMAKE_MATCH_1}")
+                    endif()
+
+                    ##
+                    ##  Note:   As the shared library should do the light lifting, we are more relaxed.
+                    ##          By default, if we already have the 'acceptable_dont_patch_rpath' don't touch it
+                    if(ARG_KEEP_ACCEPTABLE_RPATH AND NOT ARG_APPEND_EXISTING_RPATH)
+                        if("${acceptable_default_rpath}" STREQUAL "${current_rpath}")
+                            developer_status_message("DEVEL" ">> (KEEP_ACCEPTABLE_RPATH): Keeping 'RPATH' for *shared library*: '${CURRENT_BINARY}' as: '${acceptable_default_rpath}' ...")
+                            continue()
+                        endif()
+                    endif()
+
+                    if(APPEND_EXISTING_RPATH AND NOT ARG_KEEP_ACCEPTABLE_RPATH)
+                        if(NOT "${current_rpath}" STREQUAL "")
+                            set(shared_library_expected_rpath "${current_rpath}:${shared_library_expected_rpath}")
+                            developer_status_message("DEVEL" ">> (APPEND_EXISTING_RPATH): Appending 'RPATH' for *shared library*: '${CURRENT_BINARY}' as: '${shared_library_expected_rpath}' ...")
+                        endif()
+                    endif()
+
+                    if(NOT "${current_rpath}" STREQUAL "${shared_library_expected_rpath}")
+                        developer_status_message("DEVEL" ">> Setting 'RPATH' for *shared library*: '${CURRENT_BINARY}' ...")
+                        developer_status_message("DEVEL" "  >> from: '${current_rpath}' to: '${shared_library_expected_rpath}' ...")
+
+                        set_rpath(
+                            TARGET_OR_BINARY_FILE "${CURRENT_BINARY}"
+                            MODE "RUN_NOW"
+                            RPATH "${shared_library_expected_rpath}"
+                        )
+                    endif()
+                endif()
+
+            elseif(OUTPUT_FILE_CHECK MATCHES "ELF.*static library" OR
+                   OUTPUT_FILE_CHECK MATCHES "current ar archive" OR
+                   OUTPUT_FILE_CHECK MATCHES "library file")
+                list(APPEND static_libraries_list "${CURRENT_BINARY}")
+                ## Nothing to do for static libraries, as they do not have an RPATH.
+                #execute_process(
+                #    COMMAND ${READELF_EXECUTABLE} -a "${CURRENT_BINARY}"
+                #    OUTPUT_VARIABLE OUTPUT_READELF
+                #)
+            else()
+                developer_status_message("DEVEL" ">> File: '${CURRENT_BINARY}' is not a binary file. Ignoring it...")
+            endif()
+        endif()
+    endforeach()
+
+    set(${ARG_EXECUTABLES_LIST} "${executables_list}" PARENT_SCOPE)
+    set(${ARG_SHARED_LIBRARIES_LIST} "${shared_libraries_list}" PARENT_SCOPE)
+    set(${ARG_STATIC_LIBRARIES_LIST} "${static_libraries_list}" PARENT_SCOPE)
 endfunction()
 
 #
@@ -582,6 +800,7 @@ macro(setup_cmake target_name target_version)
     #
     find_program(CCACHE_PATH ccache)
     find_program(NINJA_PATH ninja)
+    find_program(PATCHELF_PATH patchelf)
     find_program(LD_LLD_PATH ld.lld)
     find_program(LD_MOLD_PATH ld.mold)
 
@@ -599,10 +818,6 @@ macro(setup_cmake target_name target_version)
     #           CMAKE_HAVE_LIBC_PTHREAD - Failed
     #           Check if compiler accepts -pthread - no
     #           Could NOT find Threads
-    #elseif(IS_LIGHTNING_CLANG_DEFAULT_COMPILER AND ROCM_CLANG_TOOLCHAIN_USED)
-    #    set(AMD_WORK_BENCH_CXX_FLAGS "-stdlib=libc++")
-    #    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${AMD_WORK_BENCH_CXX_FLAGS}")
-    #    message(STATUS ">> Using compiler: ${CMAKE_CXX_COMPILER} with option: ${AMD_WORK_BENCH_CXX_FLAGS}")
     endif()
 
     if(NINJA_PATH)
@@ -610,6 +825,11 @@ macro(setup_cmake target_name target_version)
     else()
         message(WARNING ">> Ninja was not found! Using default generator.")
     endif()
+
+    if(NOT PATCHELF_PATH)
+        message(WARNING ">> PatchElf was not found! Will not be able to patch some RPATHs.")
+    endif()
+
 
     # Lets give priority to MOLD linker
     set(AMD_WORK_BENCH_LINKER_OPTION "")
@@ -626,8 +846,6 @@ macro(setup_cmake target_name target_version)
 
     if(LD_MOLD_PATH OR LD_LLD_PATH AND AMD_WORK_BENCH_LINKER_OPTION)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${AMD_WORK_BENCH_LINKER_OPTION}")
-        #set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${AMD_WORK_BENCH_LINKER_OPTION})
-        #set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${AMD_WORK_BENCH_LINKER_OPTION})
         message(STATUS ">> Using linker: '${CMAKE_LINKER}' with options: '${AMD_WORK_BENCH_LINKER_OPTION}'")
     endif()
       
@@ -636,7 +854,8 @@ macro(setup_cmake target_name target_version)
     foreach(_policy
         CMP0028 CMP0046 CMP0048 CMP0051 CMP0054
         CMP0056 CMP0063 CMP0065 CMP0074 CMP0075
-        CMP0077 CMP0082 CMP0093 CMP0127 CMP0135)
+        CMP0077 CMP0082 CMP0093 CMP0127 CMP0135
+        CMP0060)
         if(POLICY ${_policy})
             cmake_policy(SET ${_policy} NEW)
         endif()
@@ -650,7 +869,6 @@ macro(setup_default_build_options)
     # Allow compiler flags to inherit any set by env
     if((CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR(CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
         # Options common for both compilers
-        # add_compile_options(-Wall)
 
         # Specific for each compiler
         if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -668,6 +886,9 @@ macro(setup_default_build_options)
         elseif("${CMAKE_BUILD_TYPE}" STREQUAL "debug")
             set(AMD_TARGET_VERSION_TEXT "${AMD_TARGET_VERSION_TEXT}-${CMAKE_BUILD_TYPE}")
             add_compile_definitions(DEBUG)
+        elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+            set(AMD_TARGET_VERSION_TEXT "${AMD_TARGET_VERSION_TEXT}-${CMAKE_BUILD_TYPE}")
+            add_compile_definitions(NDEBUG)
         endif()
 
     else()
@@ -994,9 +1215,6 @@ macro(add_bundled_libraries)
         set(NLOHMANN_JSON_LIBRARIES nlohmann_json::nlohmann_json)
     endif()
 
-    #if(IS_COMPILER_SUPPORTS_CXX20_STANDARD)
-    #    set(SPDLOG_USE_STD_FORMAT ON CACHE BOOL "Use std::format" FORCE)
-    #endif()
     set(SPDLOG_PACKAGE_NAME "spdlog")
     set(SPDLOG_LIBRARY_NAME "spdlog")
     set(SPDLOG_REPO_URL "https://github.com/gabime/spdlog.git")
@@ -1114,9 +1332,6 @@ macro(setup_distribution_package)
 
     # ###TODO: Do we need any downloads? or symlinks?
     # file(CREATE_LINK $symlink_name ${CMAKE_CURRENT_BINARY_DIR}/original_file SYMBOLIC)
-    # file(CREATE_LINK rbt ${CMAKE_CURRENT_BINARY_DIR}/rocm-bandwidth-test/scripts/rbt.sh SYMBOLIC)
-    # #set(CMAKE_INSTALL_BINDIR "bin")
-    ##install(TARGETS awb_main RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
     # Get string and replace "_", so from 'rocm_bandwidth_test_2025.03.21_amd64.deb' to 
     # 'rocm-bandwidth-test-2025.03.21_amd64.deb'
@@ -1138,7 +1353,6 @@ macro(setup_distribution_package)
     set(CPACK_PACKAGE_CONTACT ${AMD_PROJECT_AUTHOR_MAINTAINER})
     # Prepare final version for the CPACK use
     set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-    ##string(APPEND AMD_TARGET_BUNDLE_BASE_NAME "-${AMD_TARGET_VERSION}") 
     set(CPACK_PACKAGE_NAME ${AMD_TARGET_BUNDLE_BASE_NAME})
 
     # Debian package specific variables
@@ -1175,7 +1389,6 @@ macro(setup_distribution_package)
     elseif(AMD_APP_ENGINEERING_BUILD_PACKAGE)
         ## Engineering build package
         set(AMD_TARGET_POST_BUILD_ENV "${CMAKE_BINARY_DIR}/post_build_utils_env.cmake")
-        #set(AMD_TARGET_INSTALL_STAGING "${CMAKE_BINARY_DIR}/${AMD_TARGET_NAME}_staging")
         file(WRITE ${AMD_TARGET_POST_BUILD_ENV} "" "
             set(AMD_TARGET_PROJECT_BASE \"${CMAKE_CURRENT_SOURCE_DIR}\")
             set(AMD_TARGET_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")
@@ -1189,7 +1402,6 @@ macro(setup_distribution_package)
         ")
     elseif(AMD_APP_ROCM_BUILD_PACKAGE)
         ## ROCm build package
-        ##set(AMD_TARGET_INSTALL_TYPE \"TARGET\")
         set(AMD_TARGET_POST_BUILD_ENV "${CMAKE_BINARY_DIR}/post_build_utils_env.cmake")
         file(WRITE ${AMD_TARGET_POST_BUILD_ENV} "" "
             set(AMD_TARGET_PROJECT_BASE \"${CMAKE_CURRENT_SOURCE_DIR}\")
@@ -1201,6 +1413,7 @@ macro(setup_distribution_package)
             set(AMD_TARGET_INSTALL_DIRECTORY \"\")
             set(AMD_TARGET_INSTALL_PERMISSIONS \"\")
             set(AMD_TARGET_INSTALL_STAGING \"${AMD_TARGET_INSTALL_STAGING}\")
+            set(AMD_TARGET_INSTALL_TRY_RPATH \"${AMD_APP_ROCM_BUILD_TRY_RPATH}\")
         ")
 
         #### set(AMD_TARGET_INSTALL_STAGING \"${CMAKE_BINARY_DIR}/_staging\")
@@ -1246,8 +1459,6 @@ macro(setup_distribution_package)
     else()
         message(FATAL_ERROR ">> No distribution package type was not defined!")
     endif()
-
-    
 endmacro()
 
 macro(setup_compiler_init_flags)
@@ -1264,11 +1475,16 @@ macro(setup_compiler_init_flags)
         endif()
     endif()
 
+    ##
+    ##  Note:   The '-ftrivial-auto-var-init' flag is used to initialize automatic variables in C++.
     ##  Initialize automatic variables with either a pattern or with zeroes to increase program security by preventing
-    ##  uninitialized memory disclosure and use. '-ftrivial-auto-var-init=[uninitialized|pattern|zero]' where
-    ##  'uninitialized' is the default, 'pattern' initializes variables with a pattern, and 'zero' initializes variables
-    ##  with zeroes.
-    set(AMD_WORK_BENCH_COMMON_FLAGS "${AMD_WORK_BENCH_COMMON_FLAGS} ${COMPILER_INIT_FLAG}")
+    ##  uninitialized memory disclosure and use.
+    ##  '-ftrivial-auto-var-init=[uninitialized|pattern|zero]' where:
+    ##      - 'uninitialized': is the default,
+    ##      - 'pattern': initializes variables with a pattern, and
+    ##      - 'zero': initializes variables with zeroes.
+    ##
+    add_common_flag(${COMPILER_INIT_FLAG})
 endmacro()
 
 macro(setup_compression_flags)
@@ -1287,60 +1503,81 @@ macro(setup_compression_flags)
         elseif(COMPRESS_AVAILABLE_COMPILER AND COMPRESS_AVAILABLE_LINKER)
             message(STATUS ">> Compiler and Linker support default compression... using it.")
             set(DEBUG_COMPRESSION_FLAG "-gz" CACHE STRING "Using cache for debug info compression.")
+        else()
+            set(DEBUG_COMPRESSION_FLAG "" CACHE STRING "Using cache for debug info compression.")
         endif()
     endif()
 
-    set(AMD_WORK_BENCH_COMMON_FLAGS "${AMD_WORK_BENCH_COMMON_FLAGS} ${DEBUG_COMPRESSION_FLAG}")
+    add_common_flag(${DEBUG_COMPRESSION_FLAG})
 endmacro()
 
 macro(setup_compiler_flags target_name)
     # Compiler specific flags
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_common_flag("-Wall" ${target_name})
+        add_common_flag("-Wextra" ${target_name})
+        add_common_flag("-Wno-unused-function" ${target_name})
+        add_common_flag("-Wno-unused-variable" ${target_name})
+        add_common_flag("-Wpedantic" ${target_name})
+
         if(AMD_APP_TREAT_WARNINGS_AS_ERRORS)
-            set(AMD_WORK_BENCH_COMMON_FLAGS "${AMD_WORK_BENCH_COMMON_FLAGS} -Werror -Wextra -Wall -Wpedantic -Wno-unused-variable -Wno-unused-function")
+            add_common_flag("-Werror" ${target_name})
         endif()
 
         if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-            set(AMD_WORK_BENCH_COMMON_LINKER_FLAGS "${AMD_WORK_BENCH_COMMON_LINKER_FLAGS} -rdynamic")
+            add_common_flag("-rdynamic" ${target_name})
         endif()
 
         ## -fno-omit-frame-pointer -fno-strict-aliasing -fvisibility=hidden -fvisibility-inlines-hidden
-        ## -fno-exceptions -fno-rtti -fno-omit-frame-pointer -fno-strict-aliasing -fvisibility=hidden
-        ## -fvisibility-inlines-hidden
-        set(AMD_WORK_BENCH_C_CXX_FLAGS "-Wno-array-bounds -Wno-deprecated-declarations -Wno-unknown-pragmas")
-        set(AMD_WORK_BENCH_CXX_FLAGS "-fexceptions -frtti") 
+        ## -fno-exceptions -fno-rtti
+        add_cxx_flag("-fexceptions" ${target_name})
+        add_cxx_flag("-frtti" ${target_name})
+        add_cxx_flag("-fno-omit-frame-pointer" ${target_name})
+        add_c_cxx_flag("-Wno-array-bounds" ${target_name})
+        add_c_cxx_flag("-Wno-deprecated-declarations" ${target_name})
+        add_c_cxx_flag("-Wno-unknown-pragmas" ${target_name})
 
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-            set(AMD_WORK_BENCH_C_CXX_FLAGS "${AMD_WORK_BENCH_C_CXX_FLAGS} -Wno-restrict -Wno-stringop-overread -Wno-stringop-overflow -Wno-dangling-reference") 
+            add_c_cxx_flag("-Wno-restrict" ${target_name})
+            add_c_cxx_flag("-Wno-stringop-overread" ${target_name})
+            add_c_cxx_flag("-Wno-stringop-overflow" ${target_name})
+            add_c_cxx_flag("-Wno-dangling-reference" ${target_name})
+
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            set(AMD_WORK_BENCH_C_CXX_FLAGS "${AMD_WORK_BENCH_C_CXX_FLAGS} -Wno-unknown-warning-option")
+            add_c_cxx_flag("-Wno-unknown-warning-option" ${target_name})
         endif()
 
-        if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-            ##  Building with _FORTIFY_SOURCE=3 may impact the size and performance of the code. Since _FORTIFY_SOURCE=2 
-            ##  generated only constant sizes, its overhead was negligible. However, _FORTIFY_SOURCE=3 may generate 
-            ##  additional code to compute object sizes. These additions may also cause secondary effects, such as register 
-            ##  pressure during code generation. Code size tends to increase the size of resultant binaries for the same reason.
-            ##
-            ##  _FORTIFY_SOURCE=3 has led to significant gains in security mitigation, but it may not be suitable for all
-            ##  applications. We need a proper study of performance and code size to understand the magnitude of the impact 
-            ##  created by _FORTIFY_SOURCE=3 additional runtime code generation, but the performance, and code size might well 
-            ##  be worth the magnitude of the security benefits.  _FORTIFY_SOURCE requires compiling with optimization (-O).
-            ##
-            set(AMD_WORK_BENCH_COMMON_FLAGS "${AMD_WORK_BENCH_COMMON_FLAGS} -O1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2")
 
-            ##  Stack canary check for buffer overflow on the stack. 
-            ##  Emit extra code to check for buffer overflows, such as stack smashing attacks. This is done by adding a guard 
-            ##  variable to functions with vulnerable objects. This includes functions that call alloca, and functions with 
-            ##  buffers larger than or equal to 8 bytes.
-            ##  Only variables that are actually allocated on the stack are considered, optimized away variables or variables 
-            ##  allocated in registers don’t count. 
-            ##  'stack-protector-strong' is a stronger version of 'stack-protector', but includes additional functions to be 
-            ##  protected — those that have local array definitions, or have references to local frame addresses. Only 
-            ##  variables that are actually allocated on the stack are considered, optimized away variables or variables 
-            ##  allocated in registers don’t count.
-            ##
-            set(AMD_WORK_BENCH_COMMON_FLAGS "${AMD_WORK_BENCH_COMMON_FLAGS} -fstack-protector-strong")
+        if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+            add_common_flag("-O1" ${target_name})
+
+            if(AMD_APP_BUILD_HARDENING_ENABLED)
+                ##  Building with _FORTIFY_SOURCE=3 may impact the size and performance of the code. Since _FORTIFY_SOURCE=2
+                ##  generated only constant sizes, its overhead was negligible. However, _FORTIFY_SOURCE=3 may generate
+                ##  additional code to compute object sizes. These additions may also cause secondary effects, such as register
+                ##  pressure during code generation. Code size tends to increase the size of resultant binaries for the same reason.
+                ##
+                ##  _FORTIFY_SOURCE=3 has led to significant gains in security mitigation, but it may not be suitable for all
+                ##  applications. We need a proper study of performance and code size to understand the magnitude of the impact
+                ##  created by _FORTIFY_SOURCE=3 additional runtime code generation, but the performance, and code size might well
+                ##  be worth the magnitude of the security benefits.  _FORTIFY_SOURCE requires compiling with optimization (-O).
+                ##
+                add_common_flag("-U_FORTIFY_SOURCE" ${target_name})
+                add_common_flag("-D_FORTIFY_SOURCE=2" ${target_name})
+
+                ##  Stack canary check for buffer overflow on the stack.
+                ##  Emit extra code to check for buffer overflows, such as stack smashing attacks. This is done by adding a guard
+                ##  variable to functions with vulnerable objects. This includes functions that call alloca, and functions with
+                ##  buffers larger than or equal to 8 bytes.
+                ##  Only variables that are actually allocated on the stack are considered, optimized away variables or variables
+                ##  allocated in registers don’t count.
+                ##  'stack-protector-strong' is a stronger version of 'stack-protector', but includes additional functions to be
+                ##  protected — those that have local array definitions, or have references to local frame addresses. Only
+                ##  variables that are actually allocated on the stack are considered, optimized away variables or variables
+                ##  allocated in registers don’t count.
+                ##
+                add_common_flag("-fstack-protector-strong" ${target_name})
+            endif()
         endif()            
 
         if(AMD_APP_DEBUG_INFO_COMPRESS)
@@ -1349,13 +1586,47 @@ macro(setup_compiler_flags target_name)
 
         ## Compiler initialization flags
         setup_compiler_init_flags()
+
+        ## RelWithDebInfo builds, minimum debug info
+        if (NOT CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+                add_c_cxx_flag("-g1" ${target_name})
+            endif()
+
+            ## Inline function debugg
+            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                add_c_cxx_flag("-ginline-points" ${target_name})
+                add_c_cxx_flag("-gstatement-frontiers" ${target_name})
+            endif()
+        endif()
+
     endif()
 
-    # CMake specific flags
-    set_target_properties(${target_name} PROPERTIES COMPILE_FLAGS "${AMD_WORK_BENCH_COMMON_FLAGS} ${AMD_WORK_BENCH_C_CXX_FLAGS}")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${AMD_WORK_BENCH_COMMON_FLAGS} ${AMD_WORK_BENCH_C_CXX_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${AMD_WORK_BENCH_COMMON_FLAGS} ${AMD_WORK_BENCH_C_CXX_FLAGS} ${AMD_WORK_BENCH_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${AMD_WORK_BENCH_COMMON_LINKER_FLAGS}")
+    ## CMake specific flags
+    set(TARGET_RPATH "\$ORIGIN")
+    get_target_property(target_type ${target_name} TYPE)
+    if(target_type STREQUAL "EXECUTABLE")
+        set(TARGET_RPATH "\$ORIGIN/../lib:\$ORIGIN/../lib/llvm/lib")
+        developer_status_message("DEVEL" ">> The target: '${target_name}' is an executable ...")
+        developer_status_message("DEVEL" "  >> Executable RPATH: '${TARGET_RPATH}' ...")
+    elseif(target_type STREQUAL "SHARED_LIBRARY")
+        set(TARGET_RPATH "\$ORIGIN:\$ORIGIN/llvm/lib")
+        developer_status_message("DEVEL" ">> The target: '${target_name}' is a shared library ...")
+        developer_status_message("DEVEL" "  >> Shared Library RPATH: '${TARGET_RPATH}' ...")
+    elseif(target_type STREQUAL "STATIC_LIBRARY")
+        developer_status_message("DEVEL" ">> The target: '${target_name}' is a static library ...")
+        developer_status_message("DEVEL" "  >> Static Library RPATH: 'N/A' ...")
+    else()
+        developer_status_message("DEVEL" ">> The target: '${target_name}' is of type: '${target_type}' ...")
+        developer_status_message("DEVEL" "  >> Default RPATH: '${TARGET_RPATH}' ...")
+    endif()
+
+    set_target_properties(${target_name}
+        PROPERTIES
+            INSTALL_RPATH_USE_LINK_PATH FALSE
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "${TARGET_RPATH}"
+    )
 endmacro()
 
 macro(developer_status_message message_mode message)

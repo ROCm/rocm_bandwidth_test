@@ -30,7 +30,7 @@ if (NOT USE_SYSTEM_TB_ENGINE)
 
     # Build the TransferBench shared library at config time
     #execute_process(
-    #    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build_libamd_tb.sh 
+    #    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build_libamd_tb.sh
     #    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/
     #    RESULT_VARIABLE BUILD_SCRIPT_RESULT
     #    OUTPUT_VARIABLE BUILD_SCRIPT_OUTPUT
@@ -54,8 +54,19 @@ if (NOT USE_SYSTEM_TB_ENGINE)
     if(DEFINED ENV{ROCM_PATH})
         set(ROCM_PATH $ENV{ROCM_PATH})
     else()
-        set(ROCM_PATH "/opt/rocm")
+        if(DEFINED ENV{ROCM_INSTALL_PATH})
+            set(ROCM_PATH $ENV{ROCM_INSTALL_PATH})
+        elseif(DEFINED ENV{ROCM_VERSION})
+            set(ROCM_PATH "/opt/rocm-$ENV{ROCM_VERSION}")
+        else()
+            set(ROCM_PATH "/opt/rocm")
+        endif()
     endif()
+    set(HIPCC_CXX_PATH "${ROCM_PATH}")
+    if (NOT HIPCC_CXX_PATH STREQUAL "")
+        set(HIPCC_CXX_PATH "${HIPCC_CXX_PATH}/bin")
+    endif()
+
     set(AMD_WORK_BENCH_COMMON_INCLUDE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../common/)
     set(TB_PLUGIN_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/include ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/include/Presets ${ROCM_PATH}/include)
 else()
@@ -69,22 +80,6 @@ file(MAKE_DIRECTORY ${LIB_DIRECTORY_PATH})
 set(FILE_DEPS_LIST_COPY "")
 message(WARNING ">> Trying to find 'hipcc', required for this component (AMD_TB_LIBRARY) ...")
 
-if(DEFINED ENV{ROCM_PATH})
-    set(ROCM_PATH $ENV{ROCM_PATH})
-else()
-    if(DEFINED ENV{ROCM_INSTALL_PATH})
-        set(ROCM_PATH $ENV{ROCM_INSTALL_PATH})
-    elseif(DEFINED ENV{ROCM_VERSION})
-        set(ROCM_PATH "/opt/rocm-$ENV{ROCM_INSTALL_PATH}")
-    else()
-        set(ROCM_PATH "/opt/rocm")
-    endif()
-endif()
-set(HIPCC_CXX_PATH "${ROCM_PATH}")
-if (NOT HIPCC_CXX_PATH STREQUAL "")
-    set(HIPCC_CXX_PATH "${HIPCC_CXX_PATH}/bin")
-endif()
-
 find_program(HIPCC_COMPILER_CXX hipcc HINTS ${HIPCC_CXX_PATH} ${CMAKE_CXX_COMPILER_PATH} ${CMAKE_CXX_COMPILER})
 if(HIPCC_COMPILER_CXX)
     message(STATUS "  >> Found 'hipcc' compiler: ${HIPCC_COMPILER_CXX}")
@@ -94,36 +89,36 @@ endif()
 
 get_property(BUILD_TYPE GLOBAL PROPERTY CMAKE_BUILD_TYPE)
 message(STATUS "  >> Build type: '${AMD_PROJECT_BUILD_TYPE}' v:${AMD_APP_ROCM_BUILD_BINARY_VERSION_INTERNAL}")
-ExternalProject_Add( 
+ExternalProject_Add(
     AMD_TB_LIBRARY
     ##PREFIX "lib"
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/
     BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build
     ##INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/
     CONFIGURE_COMMAND ""
-    ##  Defined as empty string to avoid the default install step, and uses: 
-    ##  'ExternalProject_Add_Step(AMD_TB_LIBRARY install' 
-    ## INSTALL_COMMAND "" 
-    INSTALL_COMMAND 
-        ${CMAKE_COMMAND} -E make_directory ${LIB_DIRECTORY_PATH} && 
-        ${CMAKE_COMMAND} 
+    ##  Defined as empty string to avoid the default install step, and uses:
+    ##  'ExternalProject_Add_Step(AMD_TB_LIBRARY install'
+    ## INSTALL_COMMAND ""
+    INSTALL_COMMAND
+        ${CMAKE_COMMAND} -E make_directory ${LIB_DIRECTORY_PATH} &&
+        ${CMAKE_COMMAND}
             -DINSTALL_DEPENDEE_BASE_PATH=${CMAKE_CURRENT_SOURCE_DIR}
             -DINSTALL_SOURCE_LIBAMD_TB_PATH=${DEPS_DIRECTORY_PATH}
             -DINSTALL_TARGET_LIBAMD_TB_PATH=${LIB_DIRECTORY_PATH}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/install_libamd_tb.cmake
 
-    BUILD_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build_libamd_tb.sh 
-        ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build 
-        ${AMD_PROJECT_BUILD_TYPE} 
+    BUILD_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build_libamd_tb.sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/transferbench/build
+        ${AMD_PROJECT_BUILD_TYPE}
         ${AMD_APP_ROCM_BUILD_BINARY_VERSION_INTERNAL}
         ${HIPCC_COMPILER_CXX}
-    COMMENT ">> Building 'libamd_tb' dependency library ..."            
+    COMMENT ">> Building 'libamd_tb' dependency library ..."
 )
 
 foreach(file_dependency ${FILE_DEPS_LIST_COPY})
     get_filename_component(file_name ${file_dependency} NAME)
     #ExternalProject_Add_Step(AMD_TB_LIBRARY copy_${file_name}
-    ##  CMake will execute the commands defined here overriding both the external project's default 
+    ##  CMake will execute the commands defined here overriding both the external project's default
     ##  install target and any INSTALL_COMMAND provided in the ExternalProject_Add call.
     ##  DEPENDS build; build is an automagically step created by the ExternalProject_Add call, so we
     ##  don't need to define it/one
@@ -135,9 +130,10 @@ foreach(file_dependency ${FILE_DEPS_LIST_COPY})
     )
 endforeach()
 
+
 add_custom_target(libamd_tb_dependency ALL DEPENDS AMD_TB_LIBRARY)
 add_library(amd_tb_lib SHARED IMPORTED)
-set_target_properties(amd_tb_lib PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/deps/libamd_tb.so)
+set_target_properties(amd_tb_lib PROPERTIES IMPORTED_LOCATION "${LIB_DIRECTORY_PATH}/libamd_tb.so")
 
 ##
 # Add the plugin
@@ -151,7 +147,7 @@ add_amd_work_bench_plugin(
         src/view_transferbench.cpp
         transferbench/include/plugin_tb_link.hpp
 
-        
+
     INCLUDES
         include
         ${AMD_WORK_BENCH_COMMON_INCLUDE_DIRECTORY}

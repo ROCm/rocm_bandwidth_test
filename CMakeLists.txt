@@ -83,9 +83,11 @@ option(AMD_APP_BUILD_EXAMPLES               "Build examples"                    
 option(AMD_APP_BUILD_TESTS                  "Build unit tests"                                                                  OFF)
 option(AMD_APP_COMPILER_TRY_CLANG           "Give preference to 'Clang++' compiler if installed and requirements met"           ON)
 option(AMD_APP_LINKER_TRY_MOLD              "Give preference to 'Mold' linker (faster) if available"                            ON)
+option(AMD_APP_BUILD_HARDENING_ENABLED      "Build the project with hardening flags"                                            ON)
 option(AMD_APP_SUBMODULES_TRY_CHECKOUT      "Try to 'git checkout' submodules with 'required commits' (if needed)"              ON)
 option(AMD_APP_ROCM_BUILD_AUTO_DETECT       "Auto detect ROCm build environment"                                                ON)
 option(AMD_APP_ROCM_BUILD_PACKAGE           "Force build/package under ROCm environment (if available: BUILD_AUTO_DETECT)"      OFF)
+option(AMD_APP_ROCM_BUILD_TRY_RPATH         "Try to apply 'RPATH' rules for ROCm build binaries (if needed/applicable)"         ON)
 option(AMD_APP_STANDALONE_BUILD_PACKAGE     "Build standalone package (not ROCm based)"                                         OFF)
 option(AMD_APP_ENGINEERING_BUILD_PACKAGE    "Build and create a BZ2 Engineering package (ROCm & Standalone are ignored)"        OFF)
 option(AMD_APP_DEBUG_BUILD_INFO             "Build messages/info (extra info for Developers)"                                   OFF)
@@ -106,7 +108,7 @@ set(AMD_PROJECT_DESCRIPTION "rocm_bandwidth_test utility")
 set(AMD_PROJECT_AUTHOR_ORGANIZATION "AMD, Inc.")
 set(AMD_PROJECT_GITHUB_REPO         "https://github.com/ROCm/rocm_bandwidth_test")
 set(AMD_PROJECT_AUTHOR_DOMAIN       "https://www.amd.com")
-set(AMD_PROJECT_AUTHOR_MAINTAINER   "daniel.oliveira@amd.com")
+set(AMD_PROJECT_AUTHOR_MAINTAINER   "MLSE Team <daniel.oliveira@amd.com>")
 set(AMD_PROJECT_VERSION_MAJOR       "")
 set(AMD_PROJECT_VERSION_MINOR       "")
 set(AMD_PROJECT_VERSION_PATCH       "")
@@ -132,7 +134,7 @@ setup_project()
 ##  Note:
 ##  # Clang++ Compiler
 ##      When 'AMD_APP_COMPILER_TRY_CLANG' is set to 'ON', the project will try to use 'Clang++' compiler
-##      if it is available and the requirements are met (Clang++ 19+). If 'Clang++' is not available, the 
+##      if it is available and the requirements are met (Clang++ 19+). If 'Clang++' is not available, the
 ##      project will fallback to the default compiler (g++).
 ##      That is to simplify the CI/CD process and to ensure that the project can be built in any environment.
 ##
@@ -142,14 +144,14 @@ setup_project()
 ##      build process. If 'Mold' is not available, the project will fallback to the default linker.
 ##
 ##  # ROCm Build Environment
-##      When AMD_APP_ROCM_BUILD_AUTO_DETECT=ON, and 'setup_rocm_auto_build_environment()' is called it will 
-##      check if the system used to build the project has all the required ROCm dependencies and in case it 
+##      When AMD_APP_ROCM_BUILD_AUTO_DETECT=ON, and 'setup_rocm_auto_build_environment()' is called it will
+##      check if the system used to build the project has all the required ROCm dependencies and in case it
 ##      does, the flag 'AMD_APP_ROCM_BUILD_PACKAGE' will be set to 'ON' and the project will be built as a
 ##      ROCm package.
 ##
-##      When AMD_APP_ROCM_BUILD_AUTO_DETECT=OFF, the flag 'AMD_APP_ROCM_BUILD_PACKAGE' will be set to 'OFF' 
-##      (default) so the project will be built as a standalone package. 
-##  
+##      When AMD_APP_ROCM_BUILD_AUTO_DETECT=OFF, the flag 'AMD_APP_ROCM_BUILD_PACKAGE' will be set to 'OFF'
+##      (default) so the project will be built as a standalone package.
+##
 setup_rocm_auto_build_environment(AMD_APP_ROCM_BUILD_AUTO_DETECT AMD_APP_ROCM_BUILD_PACKAGE)
 
 #
@@ -184,7 +186,6 @@ setup_install_target()
 add_bundled_libraries()
 
 #
-add_subdirectory(deps/external/dynamic_lib_mgmt)
 add_subdirectory(deps/work_bench)
 add_subdirectory(main)
 
@@ -235,7 +236,7 @@ setup_distribution_package()
 # Setup post build steps for install/packaging
 set(AMD_PROJECT_BASE_DIRECTORY  "${CMAKE_SOURCE_DIR}")
 set(AMD_PROJECT_BUILD_DIRECTORY "${CMAKE_BINARY_DIR}")
-configure_file("${AMD_APP_CMAKE_MODULES_DIRECTORY}/post_build_utils.cmake.in" 
+configure_file("${AMD_APP_CMAKE_MODULES_DIRECTORY}/post_build_utils.cmake.in"
                "${CMAKE_BINARY_DIR}/post_build_utils.cmake" @ONLY)
 
 #
@@ -244,13 +245,13 @@ if(AMD_APP_STANDALONE_BUILD_PACKAGE OR AMD_APP_ENGINEERING_BUILD_PACKAGE)
     # Post build utils
     install(SCRIPT ${AMD_PROJECT_BUILD_DIRECTORY}/post_build_utils.cmake)
 
-    # 
+    #
     ## This is the bridge between the build stage and the packaging stage
     set(AMD_TARGET_INSTALL_STAGING_AREA_BASE "${CMAKE_BINARY_DIR}/${AMD_TARGET_NAME}_staging")
     if(AMD_APP_STANDALONE_BUILD_PACKAGE)
         set(AMD_ROCM_STAGING_INSTALL_PATH "/usr/local")
         set(AMD_STANDALONE_STAGING_INSTALL_LIBDIR "lib")
-        set(AMD_STANDALONE_STAGING_INSTALL_PLUGINSDIR "plugins")            
+        set(AMD_STANDALONE_STAGING_INSTALL_PLUGINSDIR "plugins")
         set(AMD_STANDALONE_STAGING_INSTALL_INCLUDEDIR "include")
         set(AMD_STANDALONE_STAGING_INSTALL_BINDIR "bin")
         set(AMD_STANDALONE_STAGING_INSTALL_DOCDIR "share/doc")
@@ -289,15 +290,14 @@ if(AMD_APP_ROCM_BUILD_PACKAGE AND (NOT AMD_APP_STANDALONE_BUILD_PACKAGE) AND (NO
     # Post build utils
     install(SCRIPT ${AMD_PROJECT_BUILD_DIRECTORY}/post_build_utils.cmake)
 
-    # 
+    #
     ## This is the bridge between the build stage and the packaging stage
     ## Preserve the proper ROCm version path: "/opt/rocm-${rocm_version}"
     get_rocm_install_path(ROCM_PATH)
-
     set(AMD_TARGET_INSTALL_STAGING_AREA_BASE "${CMAKE_INSTALL_PREFIX}/${AMD_TARGET_NAME}/_staging")
     set(AMD_ROCM_STAGING_INSTALL_PATH "${ROCM_PATH}")
     set(AMD_ROCM_STAGING_INSTALL_LIBDIR "lib")
-    set(AMD_ROCM_STAGING_INSTALL_PLUGINSDIR "plugins")            
+    set(AMD_ROCM_STAGING_INSTALL_PLUGINSDIR "plugins")
     set(AMD_ROCM_STAGING_INSTALL_INCLUDEDIR "include")
     set(AMD_ROCM_STAGING_INSTALL_BINDIR "bin")
     set(AMD_ROCM_STAGING_INSTALL_DOCDIR "share/doc")
@@ -306,8 +306,31 @@ if(AMD_APP_ROCM_BUILD_PACKAGE AND (NOT AMD_APP_STANDALONE_BUILD_PACKAGE) AND (NO
     set(AMD_ROCM_STAGING_INSTALL_EXPORTDIR "lib/cmake/${AMD_TARGET_NAME}")
     set(AMD_ROCM_STAGING_INSTALL_SYMLINKDIR "bin")
 
+    ##
+    ##  Note:  If for some reason the 'RPATH' rules are not set properly for a shared library or executable,
+    ##         changed due to changes in the build process, or an externally built project, such as other
+    ##         dependencies, we can try to still apply 'RPATH' rules for the ROCm build binaries.
+    ##         In this case, for ROCm we look at the custom staging area, and check all the binary files,
+    ##         (executables, and shared libraries), and only if/when needed, patch the 'RPATH' by applying
+    ##         our defined rules/policies.
+    ##
+    if(AMD_APP_ROCM_BUILD_TRY_RPATH)
+        install(CODE "
+                    include(\"${AMD_APP_CMAKE_DIRECTORY}/build_utils.cmake\")
+                    message(STATUS \">> Applying RPATH rules for ROCm build binaries ...\")
+                    binary_classify_in_target_directory(
+                        TRY_RPATH_SET
+                        KEEP_ACCEPTABLE_RPATH
+                        DIRECTORY_PATH \"${AMD_TARGET_INSTALL_STAGING_AREA_BASE}\"
+                        EXECUTABLES_LIST executable_list
+                        SHARED_LIBRARIES_LIST shared_libraries_list
+                        STATIC_LIBRARIES_LIST static_libraries_list
+                    )"
+        )
+    endif()
+
     message(STATUS "[[ Packing up... Project: " ${AMD_PROJECT_NAME} "   v." ${AMD_TARGET_VERSION_TEXT} " / " ${AMD_TARGET_VERSION} "  for ROCm PKG v." ${ROCM_VERSION_FOR_PACKAGE} " ]] ...")
-    ##  This installs $prefix/lib 
+    ##  This installs $prefix/lib
     ##  Note: The ending '/' in the is important ${DIRECTORY} is important.
     set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_STAGING_INSTALL_PATH}/${AMD_ROCM_STAGING_INSTALL_LIBDIR}")
     install(DIRECTORY "${AMD_TARGET_INSTALL_STAGING_AREA_BASE}/${AMD_TARGET_INSTALL_PATH}/"
@@ -336,7 +359,7 @@ if(AMD_APP_ROCM_BUILD_PACKAGE AND (NOT AMD_APP_STANDALONE_BUILD_PACKAGE) AND (NO
     set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_STAGING_INSTALL_PATH}/${AMD_ROCM_STAGING_INSTALL_DOCDIR}/${AMD_TARGET_NAME}")
     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
     install(FILES ${CPACK_RESOURCE_FILE_LICENSE} DESTINATION ${AMD_TARGET_INSTALL_PATH})
-    
+
     ## Generate installer/source packages
     include(CPack)
 endif()
