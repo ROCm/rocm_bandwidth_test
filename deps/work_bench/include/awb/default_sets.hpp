@@ -292,8 +292,7 @@ class XDGBaseDirectories_t
         FSPathList_t m_data_directories;
         FSPathList_t m_config_directories;
         std::optional<FSPath_t> m_runtime_directory;
-
-};    // namespace xdg
+};
 
 
 [[nodiscard]] inline auto home_directory() -> const FSPath_t&
@@ -424,7 +423,7 @@ static const auto kDEFAULT_LOG_DIRECTORY_NAME = std::string("log");
 static const auto kDEFAULT_BACKUP_DIRECTORY_NAME = std::string("backups");
 static const auto kDEFAULT_PLUGIN_DIRECTORY_NAME = std::string("plugins");
 static const auto kDEFAULT_LIBRARY_DIRECTORY_NAME = std::string("libs");
-static const auto kDEFAULT_INFO_PATH_STR = std::string("rocm-bandwidth-info");
+static const auto kDEFAULT_INFO_PATH_STR = std::string("rocm_bandwidth_test");
 static const auto KDEFAULT_INFO_BASE_PATH = FSPath_t(kDEFAULT_INFO_PATH_STR);
 
 static const inline details::ConfigPath_t kCONFIG_PATH(KDEFAULT_INFO_BASE_PATH / kDEFAULT_CONFIG_DIRECTORY_NAME);

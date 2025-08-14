@@ -50,7 +50,7 @@ add_executable(${AMD_PROJECT_NAME}
 
 ##
 if(NOT USE_LOCAL_CLI11)
-    add_subdirectory(${CMAKE_SOURCE_DIR}/deps/3rd_party/CLI11 ${CMAKE_CURRENT_BINARY_DIR}/../../deps/3rd_party/CLI11)
+    add_subdirectory(${AMD_3RD_PARTY_DEPS_DIRECTORY}/CLI11 ${CMAKE_CURRENT_BINARY_DIR}/../../deps/3rd_party/CLI11)
     set(CLI11_LIBRARIES CLI11::CLI11)
     set(CLI11_INCLUDE_DIRS)
 else()
@@ -63,6 +63,7 @@ endif()
 target_include_directories(${AMD_PROJECT_NAME} SYSTEM BEFORE PUBLIC ${WORK_BENCH_INCLUDE})
 target_include_directories(${AMD_PROJECT_NAME} PUBLIC include ${CLI11_LIBRARIES})
 
+add_cppcheck(${AMD_PROJECT_NAME})
 setup_compiler_flags(${AMD_PROJECT_NAME})
 setup_compiler_flags(${AMD_TARGET_LIBNAME})
 add_dependencies(${AMD_TARGET_NAME}_all ${AMD_PROJECT_NAME})

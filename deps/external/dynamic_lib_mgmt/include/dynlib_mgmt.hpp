@@ -375,7 +375,7 @@ class MetaInfoSingleton_t : public AbstractMetaInfo_t<BaseTp>
             return false;
         }
 
-        auto is_auto_delete_allowed(BaseTp* instance) const -> bool override
+        auto is_auto_delete_allowed([[maybe_unused]] BaseTp* instance) const -> bool override
         {
             return true;
         }

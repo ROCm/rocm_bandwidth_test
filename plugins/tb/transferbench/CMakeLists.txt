@@ -41,6 +41,7 @@ set(DEFAULT_GPUS
       gfx908
       gfx90a
       gfx942
+      gfx950
       gfx1030
       gfx1100
       gfx1101
@@ -82,16 +83,25 @@ set(CMAKE_CXX_FLAGS "${flags_str} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -L${ROCM_PATH}/lib")
 include_directories(${ROCM_PATH}/include)
 find_library(IBVERBS_LIBRARY ibverbs)
-if (IBVERBS_LIBRARY)
-    if (DEFINED ENV{DISABLE_NIC_EXEC})
-        message(STATUS "Disabling NIC Executor support")
-    else()
-        message(STATUS "Found ibverbs: ${IBVERBS_LIBRARY}.  Building with NIC executor support. Can set DISABLE_NIC_EXEC=1 to disable")
-        add_definitions(-DNIC_EXEC_ENABLED)
-        link_libraries(ibverbs)
-    endif()
+find_path(IBVERBS_INCLUDE_DIR infiniband/verbs.h)
+if (DEFINED ENV{DISABLE_NIC_EXEC})
+    message(STATUS "Disabling NIC Executor support")
+elseif(IBVERBS_LIBRARY AND IBVERBS_INCLUDE_DIR)
+    message(STATUS "Found ibverbs: ${IBVERBS_LIBRARY}.  Building with NIC executor support. Can set DISABLE_NIC_EXEC=1 to disable")
+    add_definitions(-DNIC_EXEC_ENABLED)
+    link_libraries(ibverbs)
 else()
-    message(WARNING "IBVerbs library not found.  Building without NIC executor support")
+    if (NOT IBVERBS_LIBRARY)
+        message(WARNING "IBVerbs library not found")
+    elseif (NOT IBVERBS_INCLUDE_DIR)
+        message(WARNING "infiniband/verbs.h not found")
+    endif()
+
+    message(WARNING "Building without NIC executor support. ")
+    message(WARNING "To use the TransferBench RDMA executor: ")
+    message(WARNING "  * Check if your system has NICs. ")
+    message(WARNING "  * Ensure the NIC drivers are installed.")
+    message(WARNING "  * Ensure libibverbs-dev is installed.")
 endif()
 
 link_libraries(numa hsa-runtime64 pthread)
@@ -101,16 +111,16 @@ set(AMD_WORK_BENCH_LOCAL_PLUGINS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/includ
 ##add_executable(${AMD_PROJECT_NAME} src/Client.cpp)
 add_library(${AMD_PROJECT_NAME} SHARED src/Client.cpp include/plugin_tb_link.hpp)
 target_include_directories(${AMD_PROJECT_NAME} PRIVATE ${AMD_WORK_BENCH_COMMON_INCLUDE_DIRECTORY} ${AMD_WORK_BENCH_LOCAL_PLUGINS_INCLUDE_DIRS})
-if (BUILD_INTERNAL_BINARY_VERSION) 
+if (BUILD_INTERNAL_BINARY_VERSION)
     set(BUILD_BINARY_VERSION ${BUILD_INTERNAL_BINARY_VERSION})
 else()
     set(BUILD_BINARY_VERSION 1)
 endif()
 
-set_target_properties(${AMD_PROJECT_NAME} PROPERTIES 
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/" 
-    #LIBRARY_OUTPUT_NAME "libamd_tb" 
-    SOVERSION ${BUILD_BINARY_VERSION} 
+set_target_properties(${AMD_PROJECT_NAME} PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/"
+    #LIBRARY_OUTPUT_NAME "libamd_tb"
+    SOVERSION ${BUILD_BINARY_VERSION}
     PREFIX ""
 )
 set_property(TARGET ${AMD_PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -133,22 +143,22 @@ set(LIBRARY_NAME ${AMD_PROJECT_NAME})
 #    MAINTAINER "RCCL Team <gilbert.lee@amd.com>"
 #)
 
-# 
+#
 ## Install target
 set(LIBAMD_TB_FILES_TO_INSTALL "")
 file(GLOB LIBAMD_TB_LIST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/build/libamd_tb.so*")
-if(LIBAMD_TB_LIST_FILES) 
+if(LIBAMD_TB_LIST_FILES)
     list(APPEND LIBAMD_TB_FILES_TO_INSTALL ${LIBAMD_TB_LIST_FILES})
 endif()
 set(TARGET_INSTALL_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib)
 
-# 
+#
 ## Install target: Provided by top CMakeLists.txt, so we can use a 'dynamic_install()' function
 #if(LIBAMD_TB_FILES_TO_INSTALL)
 #    file(MAKE_DIRECTORY ${TARGET_INSTALL_DIRECTORY})
-#    install(FILES ${LIBAMD_TB_FILES_TO_INSTALL} 
+#    install(FILES ${LIBAMD_TB_FILES_TO_INSTALL}
 #            DESTINATION ${TARGET_INSTALL_DIRECTORY}
 #    )
-#endif()    
+#endif()
 
 ## End of CMakeLists.txt
