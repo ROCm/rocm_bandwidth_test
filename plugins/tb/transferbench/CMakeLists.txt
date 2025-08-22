@@ -31,8 +31,17 @@ else()
     set(ROCM_PATH "/opt/rocm" CACHE STRING "ROCm install directory")
 endif()
 
+set(TARGET_RPATH "\$ORIGIN:\$ORIGIN/llvm/lib")
+set(CMAKE_SKIP_RPATH FALSE)
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_SKIP_INSTALL_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH "${TARGET_RPATH}")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
 set(AMD_PROJECT_NAME "libamd_tb")
 project(${AMD_PROJECT_NAME} VERSION 1.59.00 LANGUAGES CXX C)
+
 
 # Default GPU architectures to build
 #==================================================================================================
@@ -80,7 +89,10 @@ endforeach()
 list(JOIN static_link_flags " " flags_str)
 set(CMAKE_CXX_FLAGS "${flags_str} ${CMAKE_CXX_FLAGS}")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -L${ROCM_PATH}/lib")
+##
+add_compile_options("-O3")
+add_link_options("-L${ROCM_PATH}/lib")
+
 include_directories(${ROCM_PATH}/include)
 find_library(IBVERBS_LIBRARY ibverbs)
 find_path(IBVERBS_INCLUDE_DIR infiniband/verbs.h)
@@ -117,13 +129,21 @@ else()
     set(BUILD_BINARY_VERSION 1)
 endif()
 
-set_target_properties(${AMD_PROJECT_NAME} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/"
-    #LIBRARY_OUTPUT_NAME "libamd_tb"
-    SOVERSION ${BUILD_BINARY_VERSION}
-    PREFIX ""
+set_target_properties(${AMD_PROJECT_NAME}
+    PROPERTIES
+        INSTALL_RPATH "${TARGET_RPATH}"
+        INSTALL_RPATH_USE_LINK_PATH FALSE
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/"
+        #LIBRARY_OUTPUT_NAME "libamd_tb"
+        SOVERSION ${BUILD_BINARY_VERSION}
+        PREFIX ""
 )
-set_property(TARGET ${AMD_PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+set_property(TARGET ${AMD_PROJECT_NAME}
+    PROPERTY
+        POSITION_INDEPENDENT_CODE ON
+)
+
 
 ## Under ROCm build environment, package might not be available/installed yet
 #if (NOT AMD_APP_ROCM_BUILD_PACKAGE)
@@ -150,7 +170,7 @@ file(GLOB LIBAMD_TB_LIST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/build/libamd_tb.so*"
 if(LIBAMD_TB_LIST_FILES)
     list(APPEND LIBAMD_TB_FILES_TO_INSTALL ${LIBAMD_TB_LIST_FILES})
 endif()
-set(TARGET_INSTALL_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib)
+#set(TARGET_INSTALL_DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib)
 
 #
 ## Install target: Provided by top CMakeLists.txt, so we can use a 'dynamic_install()' function
