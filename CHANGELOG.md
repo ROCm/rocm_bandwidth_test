@@ -30,38 +30,80 @@ Types of changes:
             - Track with issues
                 – Link to the relevant GitHub issues
                     - Framework might not find plugins. [#456](https://github.com/ROCm/rocm_bandwidth_test/issues/456)
+
+------------------------------------------------------------------------------
+
+## [Unreleased : < RBT for ROCm 7.0.1 (2.6.1 / YYYY-MM-DD)]
+
+### Added
+
+- .
+
+### Changed
+
+- .
+
+### Deprecated
+
+- .
+
+### Removed
+
+- .
+
+### Fixed
+
+- .
+
+### Security
+
+- N/A
+
+
+### Known Issues
+
+- N/A
+
+
+
+------------------------------------------------------------------------------
+
 -->
 
 # Change Log for RBT
 
 Full documentation for RBT is available at [ROCm Bandwidth Test Documentation](https://rocm.docs.amd.com/projects/rocm_bandwidth_test/en/latest/index.html).
 
-## [Unreleased : < RBT for ROCm 7.0.0 (2.6.0 / 2025-08-20)]
+## RBT for ROCm 7.0.0 (2.6.0)
 
 ### Added
 
-- .
-- .
+- Plugin architecture:
+    - `rocm_bandwidth_test` is now the `framework` for individual `plugins` and features.
+
+        The **framework** is available at: `/opt/rocm/bin/`
+
+    - Individual `plugins`:
+
+        The **plugins (shared libraries)** are available at: `/opt/rocm/lib/rocm_bandwidth_test/plugins/`
+
+>[!NOTE]
+>Please review the [README](./README.md) file for details about the new options and outputs.
+
 
 ### Changed
 
-- .
-- .
+- The `CLI` and options/parameters have changed due to the new *plugin architecture*, where the plugin parameters are parsed by the plugin.
 
-### Deprecated
-
-- .
-- .
 
 ### Removed
 
-- .
-- .
+- The old CLI, parameters, switches used.
+
 
 ### Fixed
 
-- .
-- .
+- N/A
 
 ### Security
 
@@ -78,6 +120,4 @@ Full documentation for RBT is available at [ROCm Bandwidth Test Documentation](h
 
 ### Added
 
-- .
-- .
-
+- The latest `RBT (2.6.x and higher)` is not built/distributed with `ROCm 6.4.x` by default. However, it should be straightforward to built it under that environment.
