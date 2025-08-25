@@ -6,8 +6,25 @@
 ROCm Bandwidth Test documentation
 ===================================
 
-ROCm Bandwidth Test (RBT) is a ROCm application for reporting system information. RBT captures the performance characteristics of buffer copying and kernel read or write operations. The ``Help`` screen of the benchmark shows various options for initiating copy, read, or write operations.
-In addition, you can also query the system's topology in terms of memory pools and their agents.
+The ROCm Bandwidth Test (RBT) is a ROCm application for reporting system information. It is designed to measure the bandwidth between CPU and GPU devices on AMD platforms. RBT captures the performance characteristics of buffer copying and kernel read or write operations.
+
+RBT leverages `TransferBench <https://github.com/ROCm/TransferBench>`_ as its core engine for benchmarking data transfers. This approach facilitates more flexible and efficient testing scenarios. The RBT tool is designed to provide the following advantages:
+
+- Plugin architecture: Easily extends the RBT functionality with custom plugins
+
+- Modular design: Separate concerns for better maintenance and development
+
+- Enhanced performance: Improved algorithms and integration with TransferBench for precise measurements
+
+Here are the RBT features:
+
+- CPU to GPU bandwidth testing: To measure data transfer rates in various scenarios
+
+- GPU to GPU bandwidth testing: For systems with multiple GPUs
+
+- Multi-threaded testing: To simulate real-world applications with concurrent data transfers
+
+- Extensibility: To add new test scenarios through plugins
 
 The code is open source and hosted at: https://github.com/ROCm/rocm_bandwidth_test
 

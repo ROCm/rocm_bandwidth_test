@@ -160,6 +160,9 @@ setup_project()
 ##      check if the system used to build the project has all the required ROCm dependencies and in case it
 ##      does, the flag 'AMD_APP_ROCM_BUILD_PACKAGE' will be set to 'ON' and the project will be built as a
 ##      ROCm package.
+##      - ROCm Package: It is a package built under ROCm environment and tied up to a particular ROCm release.
+##                      This package in question is usually delivered as part of ROCm install or available via
+##                      ROCm repositories.
 ##
 ##      When AMD_APP_ROCM_BUILD_AUTO_DETECT=OFF, the flag 'AMD_APP_ROCM_BUILD_PACKAGE' will be set to 'OFF'
 ##      (default) so the project will be built as a standalone package.
@@ -168,7 +171,6 @@ setup_rocm_auto_build_environment(AMD_APP_ROCM_BUILD_AUTO_DETECT AMD_APP_ROCM_BU
 
 #
 # Build Version/Type
-##install(CODE "set(AMD_TARGET_INSTALL FALSE)")
 set(AMD_PROJECT_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Build Type" FORCE)
 set(AMD_APP_ROCM_BUILD_PACKAGE_INTERNAL ${AMD_APP_ROCM_BUILD_PACKAGE} CACHE BOOL "Is this a ROCm build (ON) or a Standalone (OFF)" FORCE)
 set(AMD_APP_ROCM_BUILD_BINARY_VERSION_INTERNAL ${AMD_TARGET_VERSION} CACHE STRING "Builtin Target version for libraries" FORCE)
@@ -247,10 +249,14 @@ setup_distribution_package()
 
 #
 # Setup post build steps for install/packaging
-set(AMD_PROJECT_BASE_DIRECTORY  "${CMAKE_SOURCE_DIR}")
+set(AMD_PROJECT_BASE_CMAKE_DIRECTORY "${AMD_APP_CMAKE_DIRECTORY}")
+set(AMD_PROJECT_BASE_DIRECTORY "${CMAKE_SOURCE_DIR}")
 set(AMD_PROJECT_BUILD_DIRECTORY "${CMAKE_BINARY_DIR}")
 configure_file("${AMD_APP_CMAKE_MODULES_DIRECTORY}/post_build_utils.cmake.in"
                "${CMAKE_BINARY_DIR}/post_build_utils.cmake" @ONLY)
+# Setup post build steps for RPATH related checks
+configure_file("${AMD_APP_CMAKE_MODULES_DIRECTORY}/post_build_rpath_utils.cmake.in"
+                "${CMAKE_BINARY_DIR}/post_build_rpath_utils.cmake" @ONLY)
 
 #
 ##
@@ -329,18 +335,24 @@ if(AMD_APP_ROCM_BUILD_PACKAGE AND (NOT AMD_APP_STANDALONE_BUILD_PACKAGE) AND (NO
     ##         our defined rules/policies.
     ##
     if(AMD_APP_ROCM_BUILD_TRY_RPATH)
-        install(CODE "
-                    include(\"${AMD_APP_CMAKE_DIRECTORY}/build_utils.cmake\")
-                    message(STATUS \">> Applying RPATH rules for ROCm build binaries ...\")
-                    binary_classify_in_target_directory(
-                        TRY_RPATH_SET
-                        KEEP_ACCEPTABLE_RPATH
-                        DIRECTORY_PATH \"${AMD_TARGET_INSTALL_STAGING_AREA_BASE}\"
-                        EXECUTABLES_LIST executable_list
-                        SHARED_LIBRARIES_LIST shared_libraries_list
-                        STATIC_LIBRARIES_LIST static_libraries_list
-                    )"
-        )
+        # Setup post build steps for RPATH related checks
+        ##configure_file("${AMD_APP_CMAKE_MODULES_DIRECTORY}/post_build_rpath_utils.cmake.in"
+        ##               "${CMAKE_BINARY_DIR}/post_build_rpath_utils.cmake" @ONLY)
+
+        ## Post RPATH utils
+        install(SCRIPT ${AMD_PROJECT_BUILD_DIRECTORY}/post_build_rpath_utils.cmake)
+        ##install(SCRIPT "
+        ##            include(\"${AMD_APP_CMAKE_DIRECTORY}/build_utils.cmake\")
+        ##            message(STATUS \">> Applying RPATH rules for ROCm build binaries ...\")
+        ##            binary_classify_in_target_directory(
+        ##                TRY_RPATH_SET
+        ##                KEEP_ACCEPTABLE_RPATH
+        ##                DIRECTORY_PATH \"${AMD_TARGET_INSTALL_STAGING_AREA_BASE}\"
+        ##                EXECUTABLES_LIST executable_list
+        ##                SHARED_LIBRARIES_LIST shared_libraries_list
+        ##                STATIC_LIBRARIES_LIST static_libraries_list
+        ##            )"
+        ##)
     endif()
 
     message(STATUS "[[ Packing up... Project: " ${AMD_PROJECT_NAME} "   v." ${AMD_TARGET_VERSION_TEXT} " / " ${AMD_TARGET_VERSION} "  for ROCm PKG v." ${ROCM_VERSION_FOR_PACKAGE} " ]] ...")

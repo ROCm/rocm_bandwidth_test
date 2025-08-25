@@ -24,6 +24,8 @@ THE SOFTWARE.
 
 // Included after EnvVars and Executors
 #include "AllToAll.hpp"
+#include "AllToAllN.hpp"
+#include "AllToAllSweep.hpp"
 #include "HealthCheck.hpp"
 #include "OneToAll.hpp"
 #include "PeerToPeer.hpp"
@@ -31,35 +33,42 @@ THE SOFTWARE.
 #include "Schmoo.hpp"
 #include "Sweep.hpp"
 #include <map>
-#include <utility>
 
-typedef void (*PresetFunc)(EnvVars& ev, size_t const numBytesPerTransfer, std::string const presetName);
+typedef void (*PresetFunc)(EnvVars&          ev,
+                           size_t      const numBytesPerTransfer,
+                           std::string const presetName);
 
-std::map<std::string, std::pair<PresetFunc, std::string>> presetFuncMap = {
-    {"a2a",         {AllToAllPreset, "Tests parallel transfers between all pairs of GPU devices"}        },
-    {"healthcheck", {HealthCheckPreset, "Simple bandwidth health check (MI300X series only)"}            },
-    {"one2all",     {OneToAllPreset, "Test all subsets of parallel transfers from one GPU to all others"}},
-    {"p2p",         {PeerToPeerPreset, "Peer-to-peer device memory bandwidth test"}                      },
-    {"rsweep",      {SweepPreset, "Randomly sweep through sets of Transfers"}                            },
-    {"scaling",     {ScalingPreset, "Run scaling test from one GPU to other devices"}                    },
-    {"schmoo",      {SchmooPreset, "Scaling tests for local/remote read/write/copy"}                     },
-    {"sweep",       {SweepPreset, "Ordered sweep through sets of Transfers"}                             },
+std::map<std::string, std::pair<PresetFunc, std::string>> presetFuncMap =
+{
+  {"a2a",         {AllToAllPreset,      "Tests parallel transfers between all pairs of GPU devices"}},
+  {"a2a_n",       {AllToAllRdmaPreset,  "Tests parallel transfers between all pairs of GPU devices using Nearest NIC RDMA transfers"}},
+  {"a2asweep",    {AllToAllSweepPreset, "Test GFX-based all-to-all transfers swept across different CU and GFX unroll counts"}},
+  {"healthcheck", {HealthCheckPreset,   "Simple bandwidth health check (MI300X series only)"}},
+  {"one2all",     {OneToAllPreset,      "Test all subsets of parallel transfers from one GPU to all others"}},
+  {"p2p"   ,      {PeerToPeerPreset,    " Peer-to-peer device memory bandwidth test"}},
+  {"rsweep",      {SweepPreset,         "Randomly sweep through sets of Transfers"}},
+  {"scaling",     {ScalingPreset,       "Run scaling test from one GPU to other devices"}},
+  {"schmoo",      {SchmooPreset,        "Scaling tests for local/remote read/write/copy"}},
+  {"sweep",       {SweepPreset,         "Ordered sweep through sets of Transfers"}},
 };
 
 void DisplayPresets()
 {
-    printf("\nAvailable Preset Benchmarks:\n");
-    printf("============================\n");
-    for (auto const& x : presetFuncMap)
-        printf("   %15s - %s\n", x.first.c_str(), x.second.second.c_str());
+  printf("\nAvailable Preset Benchmarks:\n");
+  printf("============================\n");
+  for (auto const& x : presetFuncMap)
+    printf("   %15s - %s\n", x.first.c_str(), x.second.second.c_str());
 }
 
-int RunPreset(EnvVars& ev, size_t const numBytesPerTransfer, int const argc, char** const argv)
+int RunPreset(EnvVars&       ev,
+              size_t   const numBytesPerTransfer,
+              int      const argc,
+              char**   const argv)
 {
-    std::string preset = (argc > 1 ? argv[1] : "");
-    if (presetFuncMap.count(preset)) {
-        (presetFuncMap[preset].first)(ev, numBytesPerTransfer, preset);
-        return 1;
-    }
-    return 0;
+  std::string preset = (argc > 1 ? argv[1] : "");
+  if (presetFuncMap.count(preset)) {
+    (presetFuncMap[preset].first)(ev, numBytesPerTransfer, preset);
+    return 1;
+  }
+  return 0;
 }

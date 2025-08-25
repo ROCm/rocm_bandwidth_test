@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2024 Advanced Micro Devices, Inc. All rights reserved.
+Copyright (c) 2021-2025 Advanced Micro Devices, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -77,6 +77,7 @@ class EnvVars
         int blockBytes;               // Each subexecutor, except the last, gets a multiple of this many bytes to copy
         int byteOffset;               // Byte-offset for memory allocations
         vector<float> fillPattern;    // Pattern of floats used to fill source data
+        vector<int> fillCompress;     // Percentages of 64B lines to be filled by random/1B0/2B0/4B0/32B0
         int validateDirect;           // Validate GPU destination memory directly instead of staging GPU memory on host
         int validateSource;           // Validate source GPU memory immediately after preparation
 
@@ -84,14 +85,17 @@ class EnvVars
         int useHsaDma;    // Use hsa_amd_async_copy instead of hipMemcpy for non-targetted DMA executions
 
         // GFX options
+        int gfxBlockOrder;                   // How threadblocks for multiple Transfers are ordered 0=sequential 1=interleaved
         int gfxBlockSize;                    // Size of each threadblock (must be multiple of 64)
         vector<uint32_t> cuMask;             // Bit-vector representing the CU mask
         vector<vector<int>> prefXccTable;    // Specifies XCC to use for given exe->dst pair
+        int gfxTemporal;                     // Non-temporal load/store mode (0=none, 1=load, 2=store, 3=both)
         int gfxUnroll;                       // GFX-kernel unroll factor
         int useHipEvents;                    // Use HIP events for timing GFX/DMA Executor
         int useSingleStream;                 // Use a single stream per GPU GFX executor instead of stream per Transfer
         int gfxSingleTeam;                   // Team all subExecutors across the data array
         int gfxWaveOrder;                    // GFX-kernel wavefront ordering
+        int gfxWordSize;                     // GFX-kernel packed data size (4=DWORDx4, 2=DWORDx2, 1=DWORDx1)
 
         // Client options
         int hideEnv;             // Skip printing environment variable
@@ -130,20 +134,22 @@ class EnvVars
                 defaultGfxUnroll = 8;
             else if (archName == "gfx90a")
                 defaultGfxUnroll = 8;
-            else if (archName == "gfx940")
-                defaultGfxUnroll = 6;
-            else if (archName == "gfx941")
-                defaultGfxUnroll = 6;
             else if (archName == "gfx942")
+                defaultGfxUnroll = 4;
+            else if (archName == "gfx950")
                 defaultGfxUnroll = 4;
 
             alwaysValidate = GetEnvVar("ALWAYS_VALIDATE", 0);
             blockBytes = GetEnvVar("BLOCK_BYTES", 256);
             byteOffset = GetEnvVar("BYTE_OFFSET", 0);
+            fillCompress = GetEnvVarArray("FILL_COMPRESS", {});
+            gfxBlockOrder = GetEnvVar("GFX_BLOCK_ORDER", 0);
             gfxBlockSize = GetEnvVar("GFX_BLOCK_SIZE", 256);
             gfxSingleTeam = GetEnvVar("GFX_SINGLE_TEAM", 1);
+            gfxTemporal = GetEnvVar("GFX_TEMPORAL", 0);
             gfxUnroll = GetEnvVar("GFX_UNROLL", defaultGfxUnroll);
             gfxWaveOrder = GetEnvVar("GFX_WAVE_ORDER", 0);
+            gfxWordSize = GetEnvVar("GFX_WORD_SIZE", 4);
             hideEnv = GetEnvVar("HIDE_ENV", 0);
             minNumVarSubExec = GetEnvVar("MIN_VAR_SUBEXEC", 1);
             maxNumVarSubExec = GetEnvVar("MAX_VAR_SUBEXEC", 0);
@@ -299,26 +305,44 @@ class EnvVars
             }
         }
 
+        static std::string ToStr(std::vector<int> const& values)
+        {
+            std::string result = "";
+            bool isFirst = true;
+            for (int v : values) {
+                if (isFirst)
+                    isFirst = false;
+                else
+                    result += ",";
+                result += std::to_string(v);
+            }
+            return result;
+        }
+
         // Display info on the env vars that can be used
         static void DisplayUsage()
         {
             printf("Environment variables:\n");
             printf("======================\n");
             printf(" ALWAYS_VALIDATE   - Validate after each iteration instead of once after all iterations\n");
-            printf(" BLOCK_SIZE        - # of threads per threadblock (Must be multiple of 64)\n");
             printf(" BLOCK_BYTES       - Controls granularity of how work is divided across subExecutors\n");
             printf(" BYTE_OFFSET       - Initial byte-offset for memory allocations.  Must be multiple of 4\n");
 #if NIC_EXEC_ENABLED
             printf(" CLOSEST_NIC       - Comma-separated list of per-GPU closest NIC (default=auto)\n");
 #endif
             printf(" CU_MASK           - CU mask for streams. Can specify ranges e.g '5,10-12,14'\n");
+            printf(" FILL_COMPRESS     - Percentages of 64B lines to be filled by random/1B0/2B0/4B0/32B0\n");
             printf(
                 " FILL_PATTERN      - Big-endian pattern for source data, specified in hex digits. Must be even # of digits\n");
+            printf(" GFX_BLOCK_ORDER   - How blocks for transfers are ordered. 0=sequential, 1=interleaved\n");
+            printf(" GFX_BLOCK_SIZE    - # of threads per threadblock (Must be multiple of 64)\n");
+            printf(" GFX_TEMPORAL      - Use of non-temporal loads or stores (0=none 1=loads 2=stores 3=both)\n");
             printf(" GFX_UNROLL        - Unroll factor for GFX kernel (0=auto), must be less than %d\n",
                    TransferBench::GetIntAttribute(ATR_GFX_MAX_UNROLL));
             printf(
                 " GFX_SINGLE_TEAM   - Have subexecutors work together on full array instead of working on disjoint subarrays\n");
             printf(" GFX_WAVE_ORDER    - Stride pattern for GFX kernel (0=UWC,1=UCW,2=WUC,3=WCU,4=CUW,5=CWU)\n");
+            printf(" GFX_WORD_SIZE     - GFX kernel packed data size (4=DWORDx4, 2=DWORDx2, 1=DWORDx1)\n");
             printf(" HIDE_ENV          - Hide environment variable value listing\n");
 #if NIC_EXEC_ENABLED
             printf(" IB_GID_INDEX      - Required for RoCE NICs (default=-1/auto)\n");
@@ -403,17 +427,33 @@ class EnvVars
                   (closestNicStr == "" ? "auto" : closestNicStr.c_str()));
 #endif
             Print("CU_MASK", getenv("CU_MASK") ? 1 : 0, "%s", (cuMask.size() ? GetCuMaskDesc().c_str() : "All"));
+            Print("FILL_COMPRESS",
+                  getenv("FILL_COMPRESS") ? 1 : 0,
+                  "%s",
+                  (fillCompress.size() ? GetStr(fillCompress).c_str() : "Not specified"));
             Print(
                 "FILL_PATTERN",
                 getenv("FILL_PATTERN") ? 1 : 0,
                 "%s",
                 (fillPattern.size() ? getenv("FILL_PATTERN") : TransferBench::GetStrAttribute(ATR_SRC_PREP_DESCRIPTION).c_str()));
+            Print("GFX_BLOCK_ORDER",
+                  gfxBlockOrder,
+                  "Thread block ordering: %s",
+                  gfxBlockOrder == 0 ? "Sequential" : "Interleaved");
             Print("GFX_BLOCK_SIZE", gfxBlockSize, "Threadblock size of %d", gfxBlockSize);
             Print("GFX_SINGLE_TEAM",
                   gfxSingleTeam,
                   "%s",
                   (gfxSingleTeam ? "Combining CUs to work across entire data array"
                                  : "Each CUs operates on its own disjoint subarray"));
+            Print("GFX_TEMPORAL",
+                  gfxTemporal,
+                  "%s",
+                  (gfxTemporal == 0       ? "Not using non-temporal loads/stores"
+                       : gfxTemporal == 1 ? "Using non-temporal loads"
+                       : gfxTemporal == 2 ? "Using non-temporal stores"
+                                          : "Using non-temporal loads and stores"));
+
             Print("GFX_UNROLL", gfxUnroll, "Using GFX unroll factor of %d", gfxUnroll);
             Print("GFX_WAVE_ORDER",
                   gfxWaveOrder,
@@ -424,6 +464,8 @@ class EnvVars
                        : gfxWaveOrder == 3 ? "Wavefront,CU,Unroll"
                        : gfxWaveOrder == 4 ? "CU,Unroll,Wavefront"
                                            : "CU,Wavefront,Unroll"));
+            Print("GFX_WORD_SIZE", gfxWordSize, "Using GFX word size of %d (DWORDx%d)", gfxWordSize, gfxWordSize);
+
 #if NIC_EXEC_ENABLED
             Print("IP_ADDRESS_FAMILY", ipAddressFamily, "IP address family is set to IPv%d", ipAddressFamily);
 
@@ -499,11 +541,70 @@ class EnvVars
             return defaultValue;
         }
 
+        static std::vector<int> GetEnvVarArray(std::string const& varname, std::vector<int> const& defaultValue)
+        {
+            if (getenv(varname.c_str())) {
+                std::vector<int> values;
+                char* arrayStr = getenv(varname.c_str());
+                char* token = strtok(arrayStr, ",");
+                while (token) {
+                    int val;
+                    if (sscanf(token, "%d", &val) == 1) {
+                        values.push_back(val);
+                    } else {
+                        printf("[ERROR] Unrecognized token [%s]\n", token);
+                        exit(1);
+                    }
+                    token = strtok(NULL, ",");
+                }
+                return values;
+            }
+            return defaultValue;
+        }
+
+        static std::vector<int> GetEnvVarRangeArray(std::string const& varname, std::vector<int> const& defaultValue)
+        {
+            if (getenv(varname.c_str())) {
+                char* rangeStr = getenv(varname.c_str());
+                std::set<int> values;
+                char* token = strtok(rangeStr, ",");
+                while (token) {
+                    int start, end;
+                    if (sscanf(token, "%d-%d", &start, &end) == 2) {
+                        for (int i = start; i <= end; i++)
+                            values.insert(i);
+                    } else if (sscanf(token, "%d", &start) == 1) {
+                        values.insert(start);
+                    } else {
+                        printf("[ERROR] Unrecognized token [%s]\n", token);
+                        exit(1);
+                    }
+                    token = strtok(NULL, ",");
+                }
+                std::vector<int> result;
+                for (auto v : values)
+                    result.push_back(v);
+                return result;
+            }
+            return defaultValue;
+        }
+
         static std::string GetEnvVar(std::string const& varname, std::string const& defaultValue)
         {
             if (getenv(varname.c_str()))
                 return getenv(varname.c_str());
             return defaultValue;
+        }
+
+        std::string GetStr(std::vector<int> const& varnameList) const
+        {
+            std::string result = "";
+            for (int i = 0; i < varnameList.size(); i++) {
+                if (i)
+                    result += ",";
+                result += std::to_string(varnameList[i]);
+            }
+            return result;
         }
 
         std::string GetCuMaskDesc() const
@@ -513,26 +614,26 @@ class EnvVars
             bool inRun = false;
             std::pair<int, int> curr;
             int used = 0;
-            for (int targetBit = 0; targetBit < static_cast<int>(cuMask.size() * 32); targetBit += numXccs) {
+            for (int targetBit = 0; targetBit < cuMask.size() * 32; targetBit += numXccs) {
                 if (cuMask[targetBit / 32] & (1 << (targetBit % 32))) {
                     used++;
                     if (!inRun) {
                         inRun = true;
-                        curr.first = (targetBit / numXccs);
+                        curr.first = targetBit / numXccs;
                     }
                 } else {
                     if (inRun) {
                         inRun = false;
-                        curr.second = ((targetBit / numXccs) - 1);
+                        curr.second = targetBit / numXccs - 1;
                         runs.push_back(curr);
                     }
                 }
             }
             if (inRun)
-                curr.second = ((cuMask.size() * 32) / numXccs - 1);
+                curr.second = (cuMask.size() * 32) / numXccs - 1;
 
             std::string result = "CUs used: (" + std::to_string(used) + ") ";
-            for (auto i = size_t(0); i < runs.size(); i++) {
+            for (int i = 0; i < runs.size(); i++) {
                 if (i)
                     result += ",";
                 if (runs[i].first == runs[i].second)
@@ -556,21 +657,25 @@ class EnvVars
             cfg.data.alwaysValidate = alwaysValidate;
             cfg.data.blockBytes = blockBytes;
             cfg.data.byteOffset = byteOffset;
+            cfg.data.fillCompress = fillCompress;
+            cfg.data.fillPattern = fillPattern;
             cfg.data.validateDirect = validateDirect;
             cfg.data.validateSource = validateSource;
-            cfg.data.fillPattern = fillPattern;
 
             cfg.dma.useHipEvents = useHipEvents;
             cfg.dma.useHsaCopy = useHsaDma;
 
+            cfg.gfx.blockOrder = gfxBlockOrder;
             cfg.gfx.blockSize = gfxBlockSize;
             cfg.gfx.cuMask = cuMask;
             cfg.gfx.prefXccTable = prefXccTable;
             cfg.gfx.unrollFactor = gfxUnroll;
+            cfg.gfx.temporalMode = gfxTemporal;
             cfg.gfx.useHipEvents = useHipEvents;
             cfg.gfx.useMultiStream = !useSingleStream;
             cfg.gfx.useSingleTeam = gfxSingleTeam;
             cfg.gfx.waveOrder = gfxWaveOrder;
+            cfg.gfx.wordSize = gfxWordSize;
 
             cfg.nic.ibGidIndex = ibGidIndex;
             cfg.nic.ibPort = ibPort;
