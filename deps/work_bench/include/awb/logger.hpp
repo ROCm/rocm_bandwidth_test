@@ -91,7 +91,7 @@ static const auto kLOGGER_FILE_APPLICATION_PREFIX(std::string("rocm_bandwidth"))
 static const auto kLOGGER_FILE_DEBUG_POSTFIX(std::string("debug"));
 static const auto kLOGGER_FILE_PLUGIN_POSTFIX(std::string("plugin"));
 static const auto kLOGGER_FILE_EXTENSION(std::string("log"));
-static const auto kLOGGER_FILE_APPLICATION_PATH(std::string("./" + wb_paths::kDEFAULT_INFO_PATH_STR + "/log"));
+static const auto kLOGGER_FILE_APPLICATION_PATH(std::string(xdg::home_directory()) + "/" + wb_paths::kDEFAULT_INFO_PATH_STR);
 static const auto kLOGGER_VAR_DEBUG_ENABLE = std::string("AWB_LOGGING_ENABLE");
 
 enum class LoggerLevel_t

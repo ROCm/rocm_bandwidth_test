@@ -81,7 +81,9 @@ GTAGS
 \#*\#
 .idea
 .vscode
+.trunk
 
 # Libraries that we are only checking usability
 ./deps/3rd_party/others
+./temp/
 

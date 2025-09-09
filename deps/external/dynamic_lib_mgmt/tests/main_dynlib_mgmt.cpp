@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 {
     std::cout << "dynlib_mgmg: Test" << "\n";
     auto shared_library =
-        std::string("/mlse/work/projects/rocm_downloads/amd-work-bench-new/deps/external/DynLibMgmt/build/libplugin_template.so");
+        std::string("./rocm_bandwidth_test/deps/external/DynLibMgmt/build/libplugin_template.so");
     auto dynlib_mgmt = amd_shared_library_mgmt::SharedLibraryMgmt_t(shared_library);
 
     auto worker_plugin = amd_shared_library_mgmt::ClassWorker_t<amd_work_bench::plugin::PluginIface_t>();
