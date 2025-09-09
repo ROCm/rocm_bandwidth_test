@@ -77,8 +77,9 @@ if(EXISTS ${OS_RELEASE_FILE})
     set(DISTRO_VERSION_ID "${CMAKE_MATCH_1}")
 
     message(STATUS ">> ROCm Clang Toolchain Environment Detected: '${DISTRO_NAME}', v'${DISTRO_VERSION_ID}'")
-    if((DISTRO_NAME STREQUAL "Red Hat Enterprise Linux" AND (DISTRO_VERSION_ID VERSION_EQUAL "10.0")) OR
-       (DISTRO_NAME STREQUAL "Debian GNU/Linux" AND (DISTRO_VERSION_ID VERSION_EQUAL "10") OR (DISTRO_VERSION_ID VERSION_EQUAL "11")))
+    ##  Check for unsupported distros/versions
+    ##  That is, distros/versions with compilers and std libraries not supporting C++20 fully.
+    if((DISTRO_NAME STREQUAL "Debian GNU/Linux" AND (DISTRO_VERSION_ID VERSION_GREATER_EQUAL "10")))
         #   CACHE INTERNAL makes sure the SKIP_BUILD_PROCESS variable survives into the main CMake context
         set(SKIP_BUILD_PROCESS ON CACHE INTERNAL "Skip build process for this OS version")
         file(WRITE "${CMAKE_BINARY_DIR}/rbt_skip_build_process.flag" "1")
@@ -101,7 +102,7 @@ else()
                         "  That is a requirement to locate 'Lightning Clang++'")
 endif()
 
-# 
+#
 # --- Path to Clang/LLVM binaries within the ROCm installation ---
 set(ROCM_LLVM_BIN_DIR "${ROCM_BASE_PATH}/lib/llvm/bin")
 message(STATUS ">> ROCM_INSTALL_PATH detected: '${ROCM_BASE_PATH}'")
@@ -138,7 +139,7 @@ if(CMAKE_CXX_COMPILER)
     set(CLANG_COMPILER_REVISION_VERSION_REQUIRED "0")
     set(CLANG_COMPILER_MINIMUM_VERSION_REQUIRED "${CLANG_COMPILER_MAJOR_VERSION_REQUIRED}.${CLANG_COMPILER_MINOR_VERSION_REQUIRED}.${CLANG_COMPILER_REVISION_VERSION_REQUIRED}")
 
-    execute_process( 
+    execute_process(
         COMMAND ${CMAKE_CXX_COMPILER} -dumpversion
         OUTPUT_VARIABLE CLANG_COMPILER_VERSION
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -151,8 +152,8 @@ if(CMAKE_CXX_COMPILER)
         list(GET CLANG_COMPILER_VERSION_COMPONENTS 1 CLANG_COMPILER_VERSION_MINOR)
         list(GET CLANG_COMPILER_VERSION_COMPONENTS 2 CLANG_COMPILER_VERSION_REVISION)
         set(CLANG_COMPILER_FULL_VERSION "${CLANG_COMPILER_VERSION_MAJOR}.${CLANG_COMPILER_VERSION_MINOR}.${CLANG_COMPILER_VERSION_REVISION}")
-        ## 
-        if(CLANG_COMPILER_VERSION_MAJOR GREATER_EQUAL ${CLANG_COMPILER_MAJOR_VERSION_REQUIRED} AND 
+        ##
+        if(CLANG_COMPILER_VERSION_MAJOR GREATER_EQUAL ${CLANG_COMPILER_MAJOR_VERSION_REQUIRED} AND
            CLANG_COMPILER_VERSION_MINOR GREATER_EQUAL ${CLANG_COMPILER_MINOR_VERSION_REQUIRED})
             set(CLANG_COMPILER_VERSION_RESULT TRUE)
         else()

@@ -4,7 +4,35 @@
 function main() {
     echo " PluginName: ROCm Bandwidth Test Plugin Wrapper "
     all_args="$@"
-    ./rocm_bandwidth_test run tb $all_args
+
+    ## Set default ROCM_PATH if not yet set
+    DEFAULT_ROCM_PATH="/opt/rocm"
+    if [[ -z "${ROCM_PATH}" ]]; then
+        export ROCM_PATH="$DEFAULT_ROCM_PATH"
+    fi
+    
+    ## Check if "$ROCM_PATH/bin" is already in PATH
+    ## Check if "$ROCM_PATH/lib" is already in LD_LIBRARY_PATH
+    ROCM_BIN_PATH="${ROCM_PATH}/bin"
+    ROCM_LIB_PATH="${ROCM_PATH}/lib"
+    if [[ ! -d "$ROCM_BIN_PATH" || ! -d "$ROCM_LIB_PATH" ]]; then
+        echo " >> Error: ROCM_BIN: '$ROCM_BIN_PATH' and/or ROCM_LIB: '$ROCM_LIB_PATH' path(s) does not exist. aborting ... "
+        echo
+        exit 1
+    fi
+
+    if [[ ":$PATH:" != *":$ROCM_BIN_PATH:"* ]]; then
+        echo " >> Adjusting PATH to add: '$ROCM_BIN_PATH' ... "
+        export PATH="$ROCM_BIN_PATH:$PATH"
+    fi
+    if [[ ":$LD_LIBRARY_PATH:" != *":$ROCM_LIB_PATH:"* ]]; then
+        echo " >> Adjusting LD_LIBRARY_PATH to add: '$ROCM_LIB_PATH' ... "
+        export LD_LIBRARY_PATH="$ROCM_LIB_PATH:$LD_LIBRARY_PATH"
+    fi
+
+    ## Forward args to plugin
+    echo
+    $ROCM_BIN_PATH/rocm_bandwidth_test run tb $all_args
 }
 
 

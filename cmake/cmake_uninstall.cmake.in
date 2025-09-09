@@ -24,7 +24,7 @@
 
 #
 if(NOT EXISTS "@CMAKE_BINARY_DIR@/install_manifest.txt")
-    message(FATAL_ERROR "Cannot find install manifest: @CMAKE_BINARY_DIR@/install_manifest.txt")
+    message(FATAL_ERROR ">> Cannot find install manifest: @CMAKE_BINARY_DIR@/install_manifest.txt")
 endif()
 
 file(READ "@CMAKE_BINARY_DIR@/install_manifest.txt" files)
@@ -38,9 +38,9 @@ foreach(file ${files})
             OUTPUT_VARIABLE rm_out
             RETURN_VALUE rm_retval)
         if (NOT "${rm_retval}" STREQUAL 0)
-            message(FATAL_ERROR ">> Could not remove: $ENV{DESTDIR}${file} ...")
+            message(FATAL_ERROR "  >> Could not remove: $ENV{DESTDIR}${file} ...")
         endif()
     else(IS_SYMLINK "$ENV{DESTDIR}${file}" OR EXISTS "$ENV{DESTDIR}${file}")
-        message(STATUS ">> Could not find file: $ENV{DESTDIR}${file} ...")
+        message(STATUS "  >> Could not find file: $ENV{DESTDIR}${file} ...")
     endif()
 endforeach()

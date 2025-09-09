@@ -1,0 +1,16 @@
+defaults:
+  numbered: False
+root: index
+subtrees:
+- caption: Install
+  entries:
+  - file: install/install.rst
+    title: Installation
+
+- caption: How to
+  entries:
+  - file: how-to/using_rocm_bandwidth_test.rst
+
+- caption: About
+  entries:
+  - file: license.md

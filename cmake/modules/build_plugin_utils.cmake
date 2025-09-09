@@ -30,7 +30,12 @@ macro(add_amd_work_bench_plugin)
     set(options AMD_WORK_BENCH_LIBRARY_PLUGIN)
     set(oneValueArgs NAME AMD_WORK_BENCH_VERSION)
     set(multiValueArgs SOURCES INCLUDES LIBRARIES FEATURES)
-    cmake_parse_arguments(AMD_WORK_BENCH_PLUGIN "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    cmake_parse_arguments(AMD_WORK_BENCH_PLUGIN
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
 
     if(AMD_WORK_BENCH_PLUGIN_AMD_WORK_BENCH_VERSION)
         message(STATUS ">> Building plugin: ${AMD_WORK_BENCH_PLUGIN_NAME} for: ${AMD_TARGET_NAME} v${AMD_WORK_BENCH_PLUGIN_AMD_WORK_BENCH_VERSION}")
@@ -78,6 +83,7 @@ macro(add_amd_work_bench_plugin)
     # Enable required compiler flags
     setup_unity_build(${AMD_WORK_BENCH_PLUGIN_NAME})
     setup_compiler_flags(${AMD_WORK_BENCH_PLUGIN_NAME})
+    add_cppcheck(${AMD_WORK_BENCH_PLUGIN_NAME})
 
     # Configure build properties
     set_target_properties(${AMD_WORK_BENCH_PLUGIN_NAME}
@@ -122,7 +128,7 @@ macro(add_amd_work_bench_plugin)
     # Fix rpath
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
         set(PLUGIN_RPATH "")
-        list(APPEND PLUGIN_RPATH "$ORIGIN")
+        list(APPEND PLUGIN_RPATH "\$ORIGIN")
 
         if(AMD_WORK_BENCH_PLUGIN_ADD_INSTALL_PREFIX_TO_RPATH)
             list(APPEND PLUGIN_RPATH "${CMAKE_INSTALL_PREFIX}/lib")

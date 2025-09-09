@@ -25,20 +25,49 @@
 #
 cmake_minimum_required(VERSION 3.20)
 
-# Build is not supported on Windows plaform
-if(WIN32)
-    message(FATAL_ERROR "Windows platfom is not supported!")
-    return()
-endif()
 
+#
+project(${AMD_TEST_PROJECT_COMMON_TARGET_NAME})
 
-# Set the project name
-set(AMD_PROJECT_NAME "tests_common")
-set(AMD_TARGET_LIBNAME "libamd_work_bench")
-project(${AMD_PROJECT_NAME})
+#
+message(STATUS "  >> Building... Component: " ${PROJECT_NAME} " ]] ...")
 
-add_library(${AMD_PROJECT_NAME} STATIC src/main_test.cpp)
-target_link_libraries(${AMD_PROJECT_NAME} PUBLIC ${AMD_TARGET_LIBNAME} ${FMT_LIBRARIES})
+#
+add_library(${PROJECT_NAME} 
+    STATIC 
+        src/tst_common.cpp
+)
+
+# Local include directories for this submodule of 'Unit Test' project
+target_include_directories(${PROJECT_NAME} 
+    PUBLIC 
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+
+# Include directories for 'Unit Test' project
+foreach(INCLUDE_DIRECTORY IN LISTS AMD_TEST_PROJECT_ALL_INCLUDE_DIRECTORIES)
+    target_include_directories(${PROJECT_NAME} 
+        PUBLIC 
+            $<BUILD_INTERFACE:${INCLUDE_DIRECTORY}>
+    )
+endforeach()
+
+target_link_libraries(${PROJECT_NAME} 
+    PRIVATE 
+        #${AMD_TEST_PROJECT_LINK_LIBRARIES}
+        ${AMD_TEST_PROJECT_3RD_PARTY_BUNDLE_INTERFACE_NAME}
+)
+
+set_target_properties(${PROJECT_NAME} 
+    PROPERTIES
+        CXX_STANDARD ${CMAKE_CXX_STANDARD}
+        CXX_STANDARD_REQUIRED ON
+)
+
+add_dependencies(${PROJECT_NAME} 
+    ${AMD_TEST_PROJECT_LINK_LIBRARIES}
+)
 
 
 ## End of CMakeLists.txt
