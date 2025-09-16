@@ -13,7 +13,13 @@ html_theme_options = {"flavor": "rocm"}
 extensions = ["rocm_docs"]
 external_toc_path = "./sphinx/_toc.yml"
 
-html_title = f"ROCm Bandwidth Test Documentation"
+# Dynamically extract component version
+with open('../VERSION_ROCM_PKG', encoding='utf-8') as f:
+    version_number = f.read().strip()
+    if not version_number:
+        raise ValueError("No version found in VERSION_ROCM_PKG (file is empty)")
+
+html_title = f"ROCm Bandwidth Test {version_number} documentation"
 project = "rocm_bandwidth_test"
 author = "Advanced Micro Devices, Inc."
 copyright = (
