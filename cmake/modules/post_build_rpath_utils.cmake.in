@@ -1,0 +1,306 @@
+# MIT License
+#
+# Copyright (c) 2023 Advanced Micro Devices, Inc. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+
+
+#
+set(AMD_PROJECT_BASE_CMAKE_DIRECTORY "@AMD_PROJECT_BASE_CMAKE_DIRECTORY@")
+set(AMD_PROJECT_BASE_DIRECTORY "@AMD_PROJECT_BASE_DIRECTORY@")
+set(AMD_PROJECT_BUILD_DIRECTORY "@AMD_PROJECT_BUILD_DIRECTORY@")
+
+#   Custom install support
+#   Note: This module is designed to be included after the main project has been defined,
+#         and after the 'post_build_utils_env.cmake' file has been created in the build directory.
+#         It provides functions to manage RPATH settings for binaries and libraries after they are built.
+include(${AMD_PROJECT_BASE_CMAKE_DIRECTORY}/build_utils.cmake)
+
+message(STATUS ">> Running: '${CMAKE_CURRENT_LIST_FILE}' ...")
+message(STATUS "  >> PROJECT_BASE_DIRECTORY:  '${AMD_PROJECT_BASE_DIRECTORY}' ...")
+message(STATUS "  >> PROJECT_BUILD_DIRECTORY: '${AMD_PROJECT_BUILD_DIRECTORY}' ...")
+message(STATUS "  >> PROJECT_BASE_CMAKE_DIRECTORY: '${AMD_PROJECT_BASE_CMAKE_DIRECTORY}' ...")
+include("${AMD_PROJECT_BUILD_DIRECTORY}/post_build_utils_env.cmake")
+
+
+#
+#   Note:
+#       We rely on 'patchelf' because it offers more robust options for RPATH manipulation, including setting
+#       new RPATHs and handling longer paths, whereas 'chrpath' is limited to modifying existing, short RPATHs.
+#       Additionally, 'patchelf' is the preferred tool for Linux.
+#
+function(_set_rpath_run_now_helper target_or_binary_file target_rpath)
+    if(NOT EXISTS "${target_or_binary_file}")
+        developer_status_message("DEVEL" ">> set_rpath(): In 'RUN_NOW' mode, could not find file: ${target_or_binary_file} ...")
+        return()
+    endif()
+
+    developer_status_message("DEVEL" ">> Running 'patchelf' on: ${target_or_binary_file} ...")
+    execute_process(
+        COMMAND ${PATCHELF_EXECUTABLE} --set-rpath "${target_rpath}" "${target_or_binary_file}"
+        RESULT_VARIABLE RESULT_PATCHELF
+        OUTPUT_VARIABLE OUTPUT_PATCHELF
+        ERROR_VARIABLE ERROR_PATCHELF
+    )
+
+    if(NOT RESULT_PATCHELF EQUAL 0)
+        developer_status_message("DEVEL" ">> Could not run 'patchelf' for: '${target_or_binary_file}': \n"
+                                            "  >> Result: ${RESULT_PATCHELF} \n"
+                                            "  >> Output: ${OUTPUT_PATCHELF} \n"
+                                            "  >> Error: ${ERROR_PATCHELF}")
+    else()
+        developer_status_message("DEVEL" ">> Successfully patched 'RPATH' for '${target_or_binary_file}'.")
+    endif()
+
+endfunction()
+
+function(_set_rpath_run_post_build_helper target_or_binary_file target_rpath)
+        if(NOT TARGET ${target_or_binary_file})
+            developer_status_message("DEVEL" ">> set_rpath(): In 'POST_BUILD' mode, could not find target: '${target_or_binary_file}' ...")
+        endif()
+
+        add_custom_command(
+            TARGET ${target_or_binary_file}
+            POST_BUILD
+            COMMAND ${PATCHELF_EXECUTABLE} --set-rpath ${target_rpath} "$<TARGET_FILE:${target_or_binary_file}>"
+            COMMENT ">> Patching 'RPATH' for: '${target_or_binary_file}' to: '${target_rpath}'"
+            VERBATIM
+        )
+        developer_status_message("DEVEL" ">> set_rpath(): post-build command to patch 'RPATH' for target: '${target_or_binary_file}', added ...")
+
+endfunction()
+
+function(set_rpath)
+    ## TODO/FIXME:
+    ##      - Add support for changing RPATH from OLD_RPATH to NEW_RPATH
+    ##file(RPATH_CHANGE
+    ##     FILE <file>
+    ##     OLD_RPATH <old_rpath>
+    ##     NEW_RPATH <new_rpath>)
+    ##
+    find_program(PATCHELF_EXECUTABLE patchelf HINTS /usr/bin /bin /usr/local/bin)
+    if(NOT PATCHELF_EXECUTABLE)
+        message(FATAL_ERROR ">> 'patchelf' was not found. Please install it or specify its location.")
+    endif()
+
+    set(options "")
+    set(oneValueArgs TARGET_OR_BINARY_FILE MODE RPATH)
+    set(multiValueArgs "")
+    cmake_parse_arguments(ARG
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    if(NOT DEFINED ARG_TARGET_OR_BINARY_FILE)
+        message(FATAL_ERROR ">> set_rpath(): ARG_TARGET_OR_BINARY_FILE argument is required. ")
+    endif()
+
+    if(NOT DEFINED ARG_MODE)
+        message(FATAL_ERROR ">> set_rpath(): MODE argument is required (opts: 'RUN_NOW' or 'POST_BUILD').")
+    endif()
+
+   if(NOT DEFINED ARG_RPATH)
+        set(LOCAL_RPATH "'\$ORIGIN'")
+    else()
+        set(LOCAL_RPATH ${ARG_RPATH})
+    endif()
+
+   if(ARG_MODE STREQUAL "RUN_NOW")
+        _set_rpath_run_now_helper("${ARG_TARGET_OR_BINARY_FILE}" "${LOCAL_RPATH}")
+
+    elseif(ARG_MODE STREQUAL "POST_BUILD")
+        _set_rpath_run_post_build_helper("${ARG_TARGET_OR_BINARY_FILE}" "${LOCAL_RPATH}")
+
+    else()
+        message(FATAL_ERROR "set_rpath: Invalid MODE '${ARG_MODE}'. Must be 'RUN_NOW' or 'POST_BUILD'.")
+    endif()
+endfunction()
+
+function(binary_classify_in_target_directory)
+    set(options TRY_RPATH_SET KEEP_ACCEPTABLE_RPATH APPEND_EXISTING_RPATH)
+    set(oneValueArgs DIRECTORY_PATH EXECUTABLES_LIST SHARED_LIBRARIES_LIST STATIC_LIBRARIES_LIST)
+    set(multiValueArgs "")
+    cmake_parse_arguments(ARG
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    if(NOT DEFINED ARG_DIRECTORY_PATH)
+        message(FATAL_ERROR ">> binary_classify_in_target_directory(): DIRECTORY_PATH argument is required.")
+    endif()
+    if(NOT EXISTS "${ARG_DIRECTORY_PATH}")
+        message(FATAL_ERROR ">> binary_classify_in_target_directory(): Could not find directory: ${ARG_DIRECTORY_PATH}")
+    endif()
+    if(NOT ARG_EXECUTABLES_LIST OR NOT ARG_SHARED_LIBRARIES_LIST OR NOT ARG_STATIC_LIBRARIES_LIST)
+        message(FATAL_ERROR ">> binary_classify_in_target_directory():  ARG_EXECUTABLES_LIST, ARG_SHARED_LIBRARIES_LIST, ARG_STATIC_LIBRARIES_LIST are required.")
+    endif()
+
+    find_program(READELF_EXECUTABLE readelf REQUIRED)
+    find_program(GREP_EXECUTABLE grep REQUIRED)
+    if(NOT READELF_EXECUTABLE OR NOT GREP_EXECUTABLE)
+        message(FATAL_ERROR ">> Skipping 'binary_classify' for: ${ARG_DIRECTORY_PATH}. Could not find 'file/readelf/grep' utilities ...")
+    endif()
+
+    developer_status_message("DEVEL" ">> Classifying binaries in directory: ${ARG_DIRECTORY_PATH} ...")
+    file(GLOB_RECURSE BINARY_FILES LIST_DIRECTORIES false "${ARG_DIRECTORY_PATH}/*")
+
+    ##  Note:   These are the default rules/policies for 'RPATH'
+    set(acceptable_default_rpath "\$ORIGIN")
+    set(executable_expected_rpath "\$ORIGIN/../lib:\$ORIGIN/../lib/llvm/lib")
+    set(shared_library_expected_rpath "\$ORIGIN:\$ORIGIN/llvm/lib")
+    ##
+
+    set(executables_list "")
+    set(shared_libraries_list "")
+    set(static_libraries_list "")
+    foreach(CURRENT_BINARY ${BINARY_FILES})
+        developer_status_message("DEVEL" ">> Classifying binary: ${CURRENT_BINARY} ...")
+        execute_process(
+            COMMAND ${READELF_EXECUTABLE} -h "${CURRENT_BINARY}"
+            RESULT_VARIABLE RESULT_READELF_CHECK
+            OUTPUT_VARIABLE OUTPUT_READELF_CHECK
+            ERROR_VARIABLE ERROR_READELF_CHECK
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        if(NOT RESULT_READELF_CHECK EQUAL 0)
+            developer_status_message("DEVEL" ">> Could not classify binary: ${CURRENT_BINARY}. Error: ${ERROR_READELF_CHECK}")
+            continue()
+        endif()
+
+        ##  Note:   Besides the possible 'Type' values, we can also check for
+        ##          'Entry point address: 0x0' for dynamic libraries
+        ##          'Entry point address: 0x...' for executables (!=0x0)
+        ##
+        if(OUTPUT_READELF_CHECK MATCHES "Type:.*EXEC*")
+            list(APPEND executables_list "${CURRENT_BINARY}")
+
+            if(ARG_TRY_RPATH_SET)
+                developer_status_message("DEVEL" ">> Trying to set 'RPATH' for *executable*: '${CURRENT_BINARY}' ...")
+                execute_process(
+                    COMMAND ${READELF_EXECUTABLE} -d "${CURRENT_BINARY}"
+                    COMMAND ${GREP_EXECUTABLE} -i "Library runpath"
+                    OUTPUT_VARIABLE OUTPUT_READELF
+                )
+
+                set(current_rpath "")
+                if(OUTPUT_READELF MATCHES "\\(RUNPATH\\).*Library runpath: \\[([^]]+)\\]")
+                    set(current_rpath "${CMAKE_MATCH_1}")
+                endif()
+
+                ##
+                ##  Note: As the executable should do the heavy lifting, we are less permissive.
+                if(NOT "${current_rpath}" STREQUAL "${executable_expected_rpath}")
+                    developer_status_message("DEVEL" ">> Setting 'RPATH' for *executable*: '${CURRENT_BINARY}' ...")
+                    developer_status_message("DEVEL" "  >> from: '${current_rpath}' to: '${executable_expected_rpath}' ...")
+
+                    set_rpath(
+                        TARGET_OR_BINARY_FILE "${CURRENT_BINARY}"
+                        MODE "RUN_NOW"
+                        RPATH "${executable_expected_rpath}"
+                    )
+                endif()
+            endif()
+
+        elseif(OUTPUT_READELF_CHECK MATCHES "Type:.*DYN")
+            list(APPEND shared_libraries_list "${CURRENT_BINARY}")
+
+            if(ARG_TRY_RPATH_SET)
+                developer_status_message("DEVEL" ">> Trying to set 'RPATH' for *shared library*: '${CURRENT_BINARY}' ...")
+                execute_process(
+                    COMMAND ${READELF_EXECUTABLE} -d "${CURRENT_BINARY}"
+                    COMMAND ${GREP_EXECUTABLE} -i "Library runpath"
+                    OUTPUT_VARIABLE OUTPUT_READELF
+                )
+
+                set(current_rpath "")
+                if(OUTPUT_READELF MATCHES "\\(RUNPATH\\).*Library runpath: \\[([^]]+)\\]")
+                    set(current_rpath "${CMAKE_MATCH_1}")
+                endif()
+
+                ##
+                ##  Note:   As the shared library should do the light lifting, we are more relaxed.
+                ##          By default, if we already have the 'acceptable_dont_patch_rpath' don't touch it
+                if(ARG_KEEP_ACCEPTABLE_RPATH AND NOT ARG_APPEND_EXISTING_RPATH)
+                    if("${acceptable_default_rpath}" STREQUAL "${current_rpath}")
+                        developer_status_message("DEVEL" ">> (KEEP_ACCEPTABLE_RPATH): Keeping 'RPATH' for *shared library*: '${CURRENT_BINARY}' as: '${acceptable_default_rpath}' ...")
+                        continue()
+                    endif()
+                endif()
+
+                if(APPEND_EXISTING_RPATH AND NOT ARG_KEEP_ACCEPTABLE_RPATH)
+                    if(NOT "${current_rpath}" STREQUAL "")
+                        set(shared_library_expected_rpath "${current_rpath}:${shared_library_expected_rpath}")
+                        developer_status_message("DEVEL" ">> (APPEND_EXISTING_RPATH): Appending 'RPATH' for *shared library*: '${CURRENT_BINARY}' as: '${shared_library_expected_rpath}' ...")
+                    endif()
+                endif()
+
+                if(NOT "${current_rpath}" STREQUAL "${shared_library_expected_rpath}")
+                    developer_status_message("DEVEL" ">> Setting 'RPATH' for *shared library*: '${CURRENT_BINARY}' ...")
+                    developer_status_message("DEVEL" "  >> from: '${current_rpath}' to: '${shared_library_expected_rpath}' ...")
+
+                    set_rpath(
+                        TARGET_OR_BINARY_FILE "${CURRENT_BINARY}"
+                        MODE "RUN_NOW"
+                        RPATH "${shared_library_expected_rpath}"
+                    )
+                endif()
+            endif()
+
+        elseif(OUTPUT_READELF_CHECK MATCHES "Type:.*REL" OR
+                OUTPUT_READELF_CHECK MATCHES "Not an ELF file")
+            list(APPEND static_libraries_list "${CURRENT_BINARY}")
+            ## Nothing to do for static libraries, as they do not have an RPATH.
+            #execute_process(
+            #    COMMAND ${READELF_EXECUTABLE} -a "${CURRENT_BINARY}"
+            #    OUTPUT_VARIABLE OUTPUT_READELF
+            #)
+        else()
+            developer_status_message("DEVEL" ">> File: '${CURRENT_BINARY}' is not a binary file. Ignoring it...")
+        endif()
+
+    endforeach()
+
+    set(${ARG_EXECUTABLES_LIST} "${executables_list}" PARENT_SCOPE)
+    set(${ARG_SHARED_LIBRARIES_LIST} "${shared_libraries_list}" PARENT_SCOPE)
+    set(${ARG_STATIC_LIBRARIES_LIST} "${static_libraries_list}" PARENT_SCOPE)
+endfunction()
+
+
+##
+if (NOT DEFINED AMD_TARGET_INSTALL_STAGING OR AMD_TARGET_INSTALL_STAGING STREQUAL "")
+    message(FATAL_ERROR "Invalid 'AMD_TARGET_INSTALL_STAGING' install/package staging!")
+endif()
+
+binary_classify_in_target_directory(
+    TRY_RPATH_SET
+    KEEP_ACCEPTABLE_RPATH
+    DIRECTORY_PATH "${AMD_TARGET_INSTALL_STAGING}"
+    EXECUTABLES_LIST executable_list
+    SHARED_LIBRARIES_LIST shared_libraries_list
+    STATIC_LIBRARIES_LIST static_libraries_list
+)
+
+## end of post_build_rpath_utils.cmake

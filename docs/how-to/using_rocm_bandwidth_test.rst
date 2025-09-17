@@ -1,5 +1,5 @@
 .. meta::
-  :description: ROCm Bandwidth Test is a ROCm application for reporting system information
+  :description: ROCm Bandwidth Test is an ROCm application for reporting system information
   :keywords: ROCm bandwidth test usage, RBT usage, Use RBT, Use ROCm bandwidth test, ROCm bandwidth test user guide, RBT user guide, RBT user manual, RBT tests, ROCm bandwidth test tests
 
 .. _using-rbt:
@@ -7,152 +7,98 @@
 Using ROCm Bandwidth Test
 --------------------------
 
-RBT allows you to discover the performance characteristics of Host-To-Device, Device-To-Host, and Device-to-Device copy operations on a ROCm platform.
-RBT can be run on any ROCm-compliant platform and it provides various options to experiment with the various copy operation's costs in both unidirectional and bidirectional modes.
+The ROCm Bandwidth Test (RBT) tool is a ROCm application for reporting system information and measuring the bandwidth of various copy operations.
+
+RBT is mainly composed of:
+
+* The **executable** ``rocm_bandwidth_test``
+
+  It is the framework for the RBT plugin architecture:
+
+  * A command-line utility
+  * A plugin manager that loads the shared library plugins at runtime
+  * Located in the ``/opt/rocm/bin/`` directory
+
+* A **library** named ``libamd_work_bench.so``
+
+  It is the core library that implements the plugin manager and the command-line utility, among other plugin-related functions.
+
+  * Located in the ``/opt/rocm/lib/`` directory
+
+* A set of **plugins** that implement various tests, outputs and functionalities
+
+  These are shared libraries ``(*.amdplug)`` that implement various tests. Each plugin is loaded at runtime by the plugin manager.
+
+  * Located in the ``/opt/rocm/lib/rocm_bandwidth_test/plugins/`` directory
+
+Through the plugins, RBT helps you explore the performance characteristics of Host-to-Device, Device-to-Host, and Device-to-Device copy operations on a ROCm platform.
+
+RBT can be run on any ROCm-compliant platform and provides various options to experiment with the costs of different copy operations in both unidirectional and bidirectional modes.
 You can query the various supported options using the `-h` option.
 
-Tests
-=========
+Command-line options
+=====================
 
-This section lists the tests to get performance data for various scenarios.
+The following table lists the command-line options available for the RBT framework:
+
+.. list-table:: RBT options
+      :header-rows: 1
+
+  * - Option
+    - Description
+    - Usage
+
+  * - ``help``
+    - Prints general help screen
+    - ``./rocm_bandwidth_test --help``
+
+  * - ``version``
+    - Prints tool version
+    - ``$ ./rocm_bandwidth_test --version``
+
+  * - ``builtin-help``
+    - Prints builtin plugin help screen
+    - ``$ ./rocm_bandwidth_test --builtin-help``
+
+  * - ``pcie-info``
+    - Prints PCIe link performance screen
+    - ``$ ./rocm_bandwidth_test --pcie-info``
+
+  * - ``plugin --help``
+    - Prints plugin help screen
+    - ``$ ./rocm_bandwidth_test plugin --help``
+
+  * - ``plugin --list | plugin -l``
+    - Prints list of registered plugins
+    - ``$ ./rocm_bandwidth_test plugin -l``
+
+  * - ``plugin --info | plugin -i``
+    - Prints detailed information of registered plugins
+    - ``$ ./rocm_bandwidth_test plugin -i``
+
+  * - ``plugin --run``
+    - Runs a plugin
+    - ``$ ./rocm_bandwidth_test plugin --run tb``
+
+  * - ``run``
+    - Runs a plugin
+    - ``$ ./rocm_bandwidth_test run custom_plugin_shortname`` or ``$ ./rocm_bandwidth_test run tb``
 
 .. note::
 
-      The tests filter out these unsupported operations:
+      Both command lines are valid:
 
-      * No copy requests when both source (Src) and destination (Dst) devices are CPU.
-      * No copy requests when both Src and Dst devices are the same GPU device and the request is either a partial or a full bidirectional copy operation.
+      * ``rocm_bandwidth_test`` *(executable)*
+      * ``rocm-bandwidth-test`` *(symlink to the executable)*
 
-Print help screen test
-########################
+Plugin options
+===============
 
-To print the ``help`` screen, use:
+This section lists the built-in plugin options available.
 
-.. code-block:: shell
+.. note::
 
-      $ ./rocm_bandwidth_test -h
+      Each plugin encapsulates a specific feature (or set of functionalities), allowing for different features and outputs and clear separation of concerns within the larger application.
+      Plugins can often be added, removed, or updated without requiring modifications or rebuilding of the core application, enabling greater flexibility and ease of customization.
 
-Print ROCm topology test
-############################
-
-To print topology, allocatable memory, and access paths of various devices, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -t
-
-The preceding command prints the following:
-
-* RBT version
-* List of devices and their allocatable memory
-* Access matrix
-* Numa distance among the various devices
-
-Copy overhead determination test
-######################################
-
-To determine the overhead of the copy path, which includes copy sizes from one byte to hundreds of bytes in increments of power of two, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -s <gpu_dev_IdM> -d <gpu_dev_IdN> -l
-
-The preceding command prints the RBT version and time taken to perform copy for the given device list.
-
-Data path validation test
-##############################
-
-To validate data path from a Src to Dst device by copying data, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -v
-
-The preceding command prints the following details:
-
-* RBT version
-* List of devices
-* Access matrix
-* Data path validation among the various devices
-
-Default unidirectional and bidirectional bandwidth test for all devices
-##########################################################################
-
-To collect performance characteristics of unidirectional and bidirectional copy operations involving `all` devices on a given Rocm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test
-
-The preceding command issues unidirectional and bidirectional copy operations among all the devices on the platform.
-
-Host-to-Device bandwidth test
-##################################
-
-To collect performance characteristics of Host-to-Device (H2D) copy operations on a given ROCm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -s <cpu_dev_IdX>,<cpu_dev_IdY>,- - - -d <gpu_dev_IdM>,<gpu_dev_IdN>, - - -
-
-The preceding command issues unidirectional copy operations between Src and Dst devices. Specifically, it pairs each device from the Src list
-with each device from the Dst list. This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. Ensure to validate the Src and Dst devices, their device numbers, and the connection between them by looking at the device matrix (or topology) output.
-
-Device-to-Host bandwidth test
-##############################
-
-To collect performance characteristics of Device-to-Host (D2H) copy operations on a given ROCm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -s <gpu_dev_IdX>,<gpu_dev_IdY>,- - - -d <cpu_dev_IdM>,<cpu_dev_IdN>, - - -
-
-The preceding command issues unidirectional copy operations between Src and Dst devices. Specifically, it pairs each device from the Src list with each device from the Dst List.
-This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. Ensure to validate the Src and Dst devices, their device numbers, and the connection between them by looking at the device matrix (or topology) output.
-
-Device-to-Device bandwidth test
-################################
-
-To collect performance characteristics of Device-to-Device (D2D) copy operations on a given ROCm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -s <gpu_dev_IdX>,<gpu_dev_IdY>,- - - -d <gpu_dev_IdM>,<gpu_dev_IdN>, - - -
-
-The preceding command issues unidirectional copy operations between Src and Dst devices. Specifically, it pairs each device from the Src list with each device from the Dst List.
-This implies that the command launches sizeof(SrcList) x sizeof(DstList) number of copy operations. Ensure to validate the Src and Dst devices, their device numbers, and the connection between them by looking at the device matrix (or topology) output.
-
-Bidirectional bandwidth test
-#############################
-
-To collect performance characteristics of bidirectional copy operations on a given ROCm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -b <device_IdX>,<device_IdY>,<device_IdZ>,- - -
-
-The preceding command issues bidirectional copy operations among all the devices specified in the list. The preceding command issues copy(x,x),
-copy(x,y), copy(x,z), copy(y,x), copy(y,y), copy(y,z), copy(z,x), copy(z,y), and copy(z,z) operations. The specified devices can either be all GPUs
-or a combination of GPUs and CPUs.
-
-Unidirectional bandwidth test for all devices
-##############################################
-
-To collect performance characteristics of unidirectional copy operations involving `all` devices on a given ROCm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -a
-
-The preceding command issues unidirectional copy operations among all the devices on the platform.
-
-Bidirectional bandwidth test for all devices
-#############################################
-
-To collect performance characteristics of bidirectional copy operations involving `all` devices on a given ROCm platform, use:
-
-.. code-block:: shell
-
-      $ ./rocm_bandwidth_test -A
-
-The preceding command issues bidirectional copy operations among all the devices on the platform.
+      Each plugin has its own set of parameters and options.

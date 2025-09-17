@@ -23,8 +23,6 @@ THE SOFTWARE.
 #pragma once
 
 #include <tb_engine/include/TransferBench.hpp>
-#include <vector>
-
 
 static int RemappedCpuIndex(int origIdx)
 {
@@ -43,13 +41,13 @@ static int RemappedCpuIndex(int origIdx)
 static void PrintNicToGPUTopo(bool outputToCsv)
 {
 #ifdef NIC_EXEC_ENABLED
-    printf(" NIC | Device Name | Active | PCIe Bus ID  | NUMA | Closest GPU(s)\n");
+    printf(" NIC | Device Name | Active | PCIe Bus ID  | NUMA | Closest GPU(s) | GID Index | GID Descriptor\n");
     if (!outputToCsv)
-        printf("-----+-------------+--------+--------------+------+---------------\n");
+        printf("-----+-------------+--------+--------------+------+----------------+-----------+-------------------\n");
 
     int numGpus = TransferBench::GetNumExecutors(EXE_GPU_GFX);
     auto const& ibvDeviceList = GetIbvDeviceList();
-    for (int i = 0; i < static_cast<int>(ibvDeviceList.size()); i++) {
+    for (int i = 0; i < ibvDeviceList.size(); i++) {
         std::string closestGpusStr = "";
         for (int j = 0; j < numGpus; j++) {
             if (TransferBench::GetClosestNicToGpu(j) == i) {
@@ -59,13 +57,16 @@ static void PrintNicToGPUTopo(bool outputToCsv)
             }
         }
 
-        printf(" %-3d | %-11s | %-6s | %-12s | %-4d | %-20s\n",
-               i,
-               ibvDeviceList[i].name.c_str(),
-               ibvDeviceList[i].hasActivePort ? "Yes" : "No",
-               ibvDeviceList[i].busId.c_str(),
-               ibvDeviceList[i].numaNode,
-               closestGpusStr.c_str());
+        printf(
+            " %-3d | %-11s | %-6s | %-12s | %-4d | %-14s | %-9s | %-20s\n",
+            i,
+            ibvDeviceList[i].name.c_str(),
+            ibvDeviceList[i].hasActivePort ? "Yes" : "No",
+            ibvDeviceList[i].busId.c_str(),
+            ibvDeviceList[i].numaNode,
+            closestGpusStr.c_str(),
+            ibvDeviceList[i].isRoce && ibvDeviceList[i].hasActivePort ? std::to_string(ibvDeviceList[i].gidIndex).c_str() : "N/A",
+            ibvDeviceList[i].isRoce && ibvDeviceList[i].hasActivePort ? ibvDeviceList[i].gidDescriptor.c_str() : "N/A");
     }
     printf("\n");
 #endif
