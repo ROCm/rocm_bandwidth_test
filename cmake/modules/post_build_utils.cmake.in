@@ -25,9 +25,6 @@
 # Default GNU install directories
 #include(GNUInstallDirs)
 
-# Custom install support
-#include(build_utils)
-
 #
 set(AMD_PROJECT_BASE_DIRECTORY "@AMD_PROJECT_BASE_DIRECTORY@")
 set(AMD_PROJECT_BUILD_DIRECTORY "@AMD_PROJECT_BUILD_DIRECTORY@")

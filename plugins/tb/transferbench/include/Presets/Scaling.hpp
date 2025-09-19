@@ -20,12 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#include <utility>
-
-
 void ScalingPreset(EnvVars& ev, size_t const numBytesPerTransfer, std::string const presetName)
 {
-    std::ignore = presetName;
     int numDetectedCpus = TransferBench::GetNumExecutors(EXE_CPU);
     int numDetectedGpus = TransferBench::GetNumExecutors(EXE_GPU_GFX);
 
@@ -42,7 +38,7 @@ void ScalingPreset(EnvVars& ev, size_t const numBytesPerTransfer, std::string co
     if (!ev.hideEnv) {
         int outputToCsv = ev.outputToCsv;
         if (!outputToCsv)
-            printf("[Schmoo Related]\n");
+            printf("[Scaling Related]\n");
         ev.Print("LOCAL_IDX", localIdx, "Local GPU index");
         ev.Print("SWEEP_MAX", sweepMax, "Max number of subExecutors to use");
         ev.Print("SWEEP_MIN", sweepMin, "Min number of subExecutors to use");

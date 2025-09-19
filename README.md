@@ -41,7 +41,18 @@ See the [full library and API documentation](https://rocm.docs.amd.com/en/latest
 - *Clang (19.0.1+) / GCC (12.4.0+) compiler(s)
 - CMake (3.20+)
 - CURL / libcurl4-openssl-dev (libcurl-devel)
-- Additional submodules/packages are checked during CMake config phase
+
+
+> [!NOTE]
+> This project uses the following external libraries:
+> - [boost](https://github.com/boostorg/boost)
+> - [Catch2](https://github.com/catchorg/Catch2)
+> - [CLI11](https://github.com/CLIUtils/CLI11)
+> - [fmt](https://github.com/fmtlib/fmt)
+> - [json](https://github.com/nlohmann/json)
+> - [spdlog](https://github.com/gabime/spdlog)
+>
+> These submodules are checked out and matched with the required versions or commits, according to the tool version.
 
 
 ### Build from Source

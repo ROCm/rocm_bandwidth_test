@@ -887,7 +887,6 @@ macro(_adjust_targets_recursive folder)
     endforeach()
 endmacro()
 
-
 macro(set_variable_in_parent variable value)
     get_directory_property(has_parent PARENT_DIRECTORY)
 
@@ -911,7 +910,6 @@ macro(setup_cmake target_name target_version)
     #
     find_program(CCACHE_PATH ccache)
     find_program(NINJA_PATH ninja)
-    find_program(PATCHELF_PATH patchelf)
     find_program(LD_LLD_PATH ld.lld)
     find_program(LD_MOLD_PATH ld.mold)
 
@@ -936,11 +934,6 @@ macro(setup_cmake target_name target_version)
     else()
         message(WARNING ">> Ninja was not found! Using default generator.")
     endif()
-
-    if(NOT PATCHELF_PATH)
-        message(WARNING ">> PatchElf was not found! Will not be able to patch some RPATHs.")
-    endif()
-
 
     # Lets give priority to MOLD linker
     set(AMD_WORK_BENCH_LINKER_OPTION "")
@@ -998,12 +991,12 @@ macro(setup_default_build_options)
         string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE)
         set(AMD_TARGET_VERSION_TEXT ${AMD_TARGET_VERSION})
 
-        if("${CMAKE_BUILD_TYPE}" STREQUAL "release")
+        if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
             add_compile_definitions(NDEBUG)
-        elseif("${CMAKE_BUILD_TYPE}" STREQUAL "debug")
+        elseif("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
             set(AMD_TARGET_VERSION_TEXT "${AMD_TARGET_VERSION_TEXT}-${CMAKE_BUILD_TYPE}")
             add_compile_definitions(DEBUG)
-        elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+        elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
             set(AMD_TARGET_VERSION_TEXT "${AMD_TARGET_VERSION_TEXT}-${CMAKE_BUILD_TYPE}")
             add_compile_definitions(NDEBUG)
         endif()
@@ -1778,7 +1771,7 @@ macro(setup_compiler_flags target_name)
         ## RelWithDebInfo builds, minimum debug info
         if (NOT CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
             if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-                add_c_cxx_flag("-g1" ${target_name})
+                add_c_cxx_flag("-g3" ${target_name})
             endif()
 
             ## Inline function debugg

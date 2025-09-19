@@ -25,7 +25,6 @@ THE SOFTWARE.
 #include "Presets.hpp"
 #include "Topology.hpp"
 #include <fstream>
-#include <iostream>
 
 
 /*
@@ -35,21 +34,6 @@ THE SOFTWARE.
  */
 int plugin_main_entry(int argc, char** argv)
 {
-    /*  NOTE:   This block is used for debugging purposes. It will be removed
-     *          once the plugin is fully functional.
-    std::cout << "Hello from TransferBench PluginClient: plugin_main_entry()" << std::endl;
-
-    std::cout << "details::plugin_main_entry(): \n";
-    std::cout << "  - m_argc:" << argc << "\n";
-    std::cout << "  - m_argv:" << argv << "\n";
-
-    for (auto idx = 0; idx < argc; ++idx) {
-        std::cout << "  - arg_list[" << idx << "]: " << argv[idx] << "\n";
-    }
-    std::cout << "done... \n\n";
-    // return (EXIT_SUCCESS);
-    */
-
     // Collect environment variables
     EnvVars ev;
 
@@ -88,9 +72,10 @@ int plugin_main_entry(int argc, char** argv)
     }
 
     // Run preset benchmark if requested
-    if (RunPreset(ev, numBytesPerTransfer, argc, argv))
+    if (RunPreset(ev, numBytesPerTransfer, argc, argv)) {
         // exit(0);
         return (EXIT_SUCCESS);
+    }
 
     // Read input from command line or configuration file
     std::vector<std::string> lines;
@@ -104,8 +89,8 @@ int plugin_main_entry(int argc, char** argv)
             std::ifstream cfgFile(argv[1]);
             if (!cfgFile.is_open()) {
                 printf("[ERROR] Unable to open transfer configuration file: [%s]\n", argv[1]);
-                return (EXIT_FAILURE);
                 // exit(1);
+                return (EXIT_FAILURE);
             }
             while (std::getline(cfgFile, line))
                 lines.push_back(line);
@@ -144,25 +129,25 @@ int plugin_main_entry(int argc, char** argv)
                 if (t.numSubExecs == 0) {
                     if (t.exeDevice.exeType != EXE_GPU_GFX) {
                         printf("[ERROR] Variable number of subexecutors is only supported on GFX executors\n");
-                        return (EXIT_FAILURE);
                         // exit(1);
+                        return (EXIT_FAILURE);
                     }
                     numVariableTransfers++;
                     varTransferCount[t.exeDevice]++;
                     maxVarCount = max(maxVarCount, varTransferCount[t.exeDevice]);
                 }
             }
-            if ((numVariableTransfers > 0) && (numVariableTransfers != static_cast<int>(transfers.size()))) {
+            if (numVariableTransfers > 0 && numVariableTransfers != transfers.size()) {
                 printf("[ERROR] All or none of the Transfers in the Test must use variable number of Subexecutors\n");
-                return (EXIT_FAILURE);
                 // exit(1);
+                return (EXIT_FAILURE);
             }
         }
 
         // Track which transfers have already numBytes specified
         std::vector<bool> bytesSpecified(transfers.size());
         int hasUnspecified = false;
-        for (auto i = size_t(0); i < transfers.size(); i++) {
+        for (int i = 0; i < transfers.size(); i++) {
             bytesSpecified[i] = (transfers[i].numBytes != 0);
             if (transfers[i].numBytes == 0)
                 hasUnspecified = true;
@@ -173,7 +158,7 @@ int plugin_main_entry(int argc, char** argv)
             size_t deltaBytes = std::max(1UL, bytes / ev.samplingFactor);
             size_t currBytes = (numBytesPerTransfer == 0) ? bytes : numBytesPerTransfer;
             do {
-                for (auto i = size_t(0); i < transfers.size(); i++) {
+                for (int i = 0; i < transfers.size(); i++) {
                     if (!bytesSpecified[i])
                         transfers[i].numBytes = currBytes;
                 }
@@ -230,8 +215,8 @@ void DisplayUsage(char const* cmdName)
 #if NIC_EXEC_ENABLED
     nicSupport = " (with NIC support)";
 #endif
-    printf("TransferBench v%s.%s%s\n", TransferBench::VERSION, CLIENT_VERSION, nicSupport.c_str());
-    printf("========================================\n");
+    printf("TransferBench (Plugin) v%s.%s%s\n", TransferBench::VERSION, CLIENT_VERSION, nicSupport.c_str());
+    printf("==================================================\n");
 
     if (numa_available() == -1) {
         printf("[ERROR] NUMA library not supported. Check to see if libnuma has been installed on this system\n");
@@ -322,15 +307,14 @@ void PrintResults(EnvVars const& ev,
                     printf("[ERROR] Per iteration timing data unavailable: Expected %lu data points, but have %lu\n",
                            numTimedIterations,
                            r.perIterMsec.size());
-                    return;
-                    // exit(1);
+                    exit(1);
                 }
 
                 // Compute standard deviation and track iterations by speed
                 std::set<std::pair<double, int>> times;
                 double stdDevTime = 0;
                 double stdDevBw = 0;
-                for (auto i = size_t(0); i < numTimedIterations; i++) {
+                for (int i = 0; i < numTimedIterations; i++) {
                     times.insert(std::make_pair(r.perIterMsec[i], i + 1));
                     double const varTime = fabs(r.avgDurationMsec - r.perIterMsec[i]);
                     stdDevTime += varTime * varTime;
@@ -355,7 +339,7 @@ void PrintResults(EnvVars const& ev,
                            sep);
 
                     std::set<int> usedXccs;
-                    if ((time.second - 1) < static_cast<int>(r.perIterCUs.size())) {
+                    if (time.second - 1 < r.perIterCUs.size()) {
                         printf(" CUs:");
                         for (auto x : r.perIterCUs[time.second - 1]) {
                             printf(" %02d:%02d", x.first, x.second);
@@ -393,8 +377,7 @@ void CheckForError(ErrResult const& error)
             return;
         case ERR_FATAL:
             printf("[ERROR] %s\n", error.errMsg.c_str());
-            return;
-            // exit(1);
+            exit(1);
         default:
             break;
     }
@@ -408,6 +391,5 @@ void PrintErrors(std::vector<ErrResult> const& errors)
         isFatal |= (err.errType == ERR_FATAL);
     }
     if (isFatal)
-        // exit(1);
-        return;
+        exit(1);
 }
