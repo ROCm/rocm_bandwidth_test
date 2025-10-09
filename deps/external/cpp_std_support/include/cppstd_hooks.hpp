@@ -1,15 +1,7 @@
 /*
- * MIT License
+ * SPDX-License-Identifier: MIT License
  *
- * Copyright (c) 2024, Advanced Micro Devices, Inc. All rights reserved.
- *
- *  Developed by:
- *
- *                  AMD ML Software Engineering
- *
- *                  Advanced Micro Devices, Inc.
- *
- *                  www.amd.com
+ * Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -17,17 +9,6 @@
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
  * and/or sell copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following conditions:
- *
- *  - Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimers.
- *  - Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimers in
- *    the documentation and/or other materials provided with the distribution.
- *  - Neither the names of Advanced Micro Devices, Inc,
- *    nor the names of its contributors may be used to endorse or promote
- *    products derived from this Software without specific prior written
- *    permission.
- *
  *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
@@ -40,8 +21,10 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
+ */
+
+/**
  * Author(s):   Daniel Oliveira <daniel.oliveira@amd.com>
- *
  *
  * Description: cppstd_hooks.hpp
  *
@@ -98,22 +81,22 @@
 
         /*
         *  More explicit control over the function signature, which can be extended with custom logic.
-        *  However, it a bit more verbose than `using namespace`, and requires careful handling of the 
+        *  However, it a bit more verbose than `using namespace`, and requires careful handling of the
         *  arguments using variadic templates.
-        * 
+        *
         *  //--
-        *  Yet, it is possible to create a namespace alias approach to make it more concise: 
-        * 
+        *  Yet, it is possible to create a namespace alias approach to make it more concise:
+        *
         *      namespace work_bench_ns {
         *          using fmt::format; / using std::format;
         *      }
         *      work_bench_ns::format("Hello, {}!", "world");
-        * 
+        *
         *  It resolves to the appropriate function at compile time, and syntax for both format cases is the same.
         *  //--
-        *  
+        *
         */
-        
+
         inline auto format_wrapper = [](const auto& format_content, const auto& ...args) {
             return std::format(format_content, args...);
         };
@@ -128,14 +111,14 @@
             return fmt::format(format_content, args...);
         };
 
-    #else    
+    #else
         #error "Either the compiler or the library lacks support for 'format'. std::format/fmt:format not available."
     #endif
 
 
-    /* 
+    /*
     *  std::stacktrace / boost::stacktrace support
-    *   #define __cpp_lib_stacktrace 202011L 
+    *   #define __cpp_lib_stacktrace 202011L
     *   //|| defined(__cpp_lib_stacktrace)
     */
     //#if (__cplusplus >= 202302L) && (__has_include(<stacktrace>))
@@ -144,7 +127,7 @@
 
         namespace amd_stacktrace {
             using namespace std;
-            
+
             inline auto get_current_stacktrace() {
                 return std::stacktrace::current();
             }
@@ -175,7 +158,7 @@
             }
         }
 
-    #else    
+    #else
         #error "Either the compiler or the library lacks support for 'stacktrace'. std::stacktrace/boost::stacktrace not available."
     #endif
 
