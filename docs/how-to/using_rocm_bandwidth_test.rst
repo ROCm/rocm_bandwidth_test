@@ -11,7 +11,7 @@ The ROCm Bandwidth Test (RBT) tool is a ROCm application for reporting system in
 
 RBT is mainly composed of:
 
-* The **executable** ``rocm_bandwidth_test``
+* The executable ``rocm_bandwidth_test``
 
   It is the framework for the RBT plugin architecture:
 
@@ -19,13 +19,13 @@ RBT is mainly composed of:
   * A plugin manager that loads the shared library plugins at runtime
   * Located in the ``/opt/rocm/bin/`` directory
 
-* A **library** named ``libamd_work_bench.so``
+* A library named ``libamd_work_bench.so``
 
   It is the core library that implements the plugin manager and the command-line utility, among other plugin-related functions.
 
   * Located in the ``/opt/rocm/lib/`` directory
 
-* A set of **plugins** that implement various tests, outputs and functionalities
+* A set of plugins that implement various tests, outputs and functionalities
 
   These are shared libraries ``(*.amdplug)`` that implement various tests. Each plugin is loaded at runtime by the plugin manager.
 
@@ -34,7 +34,7 @@ RBT is mainly composed of:
 Through the plugins, RBT helps you explore the performance characteristics of Host-to-Device, Device-to-Host, and Device-to-Device copy operations on a ROCm platform.
 
 RBT can be run on any ROCm-compliant platform and provides various options to experiment with the costs of different copy operations in both unidirectional and bidirectional modes.
-You can query the various supported options using the `-h` option.
+You can query the various supported options using the ``-h`` option.
 
 Command-line options
 =====================
@@ -42,7 +42,7 @@ Command-line options
 The following table lists the command-line options available for the RBT framework:
 
 .. list-table:: RBT options
-      :header-rows: 1
+  :header-rows: 1
 
   * - Option
     - Description
@@ -86,19 +86,7 @@ The following table lists the command-line options available for the RBT framewo
 
 .. note::
 
-      Both command lines are valid:
+  Both command lines are valid:
 
-      * ``rocm_bandwidth_test`` *(executable)*
-      * ``rocm-bandwidth-test`` *(symlink to the executable)*
-
-Plugin options
-===============
-
-This section lists the built-in plugin options available.
-
-.. note::
-
-      Each plugin encapsulates a specific feature (or set of functionalities), allowing for different features and outputs and clear separation of concerns within the larger application.
-      Plugins can often be added, removed, or updated without requiring modifications or rebuilding of the core application, enabling greater flexibility and ease of customization.
-
-      Each plugin has its own set of parameters and options.
+  * ``rocm_bandwidth_test`` (executable)
+  * ``rocm-bandwidth-test`` (symlink to the executable)

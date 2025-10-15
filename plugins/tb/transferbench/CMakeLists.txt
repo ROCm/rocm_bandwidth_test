@@ -118,10 +118,11 @@ set(ENV{ROCM_PATH} ${ROCM_PATH})
 
 ## Set CMAKE flags
 if (NOT DEFINED CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD 20)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
 list(APPEND CMAKE_PREFIX_PATH  # Add ROCM_PATH to CMake search paths for finding HIP / HSA
             ${ROCM_PATH}
             ${ROCM_PATH}/llvm
@@ -218,6 +219,13 @@ if(IBVERBS_FOUND)
             PRIVATE NIC_EXEC_ENABLED
     )
 endif()
+
+##
+## Note: Just for now, until TB is refactored to use CMake library options
+target_compile_definitions(
+    ${AMD_PROJECT_NAME}
+        PRIVATE AWB_TB_PLUGIN=1
+)
 
 target_link_libraries(
     ${AMD_PROJECT_NAME}

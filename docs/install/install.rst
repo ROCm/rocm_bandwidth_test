@@ -10,13 +10,13 @@ Installing ROCm Bandwidth Test
 
 This topic provides information required to build and install ROCm Bandwidth Test (RBT). You can obtain RBT either by installing ROCm repository or build from source.
 
-Prerequisites
-==============
+System requirements
+====================
 
-- `ROCm compatible hardware <https://rocm.docs.amd.com/en/develop/compatibility/compatibility-matrix.html>`
-- AMD GPU hardware for `supported GPUs <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html#supported-gpus>`_
-- Linux system supported by ROCm as described in `system requirements <https://rocm.docs.amd.com/projects/install-on-linux/en/develop/reference/system-requirements.html>`_.
-- `ROCm stack installed <https://rocm.docs.amd.com/projects/install-on-linux/en/develop/>`
+- ROCm-compatible hardware: See `Compatibility matrix <https://rocm.docs.amd.com/en/develop/compatibility/compatibility-matrix.html>`_
+- AMD GPU: See `ROCm-supported GPUs <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html#supported-gpus>`_
+- Linux system: See `ROCm-supported operating systems <https://rocm.docs.amd.com/projects/install-on-linux/en/develop/reference/system-requirements.html#supported-operating-systems>`_.
+- ROCm stack installed. See `installation instructions <https://rocm.docs.amd.com/projects/install-on-linux/en/develop/>`_
 - Compilers: Clang 19.0.1 or later or GCC 12.4.0 or later
 - CMake 3.20 or later
 - CURL or libcurl4-openssl-dev (libcurl-devel)
