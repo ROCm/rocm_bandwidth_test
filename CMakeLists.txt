@@ -307,8 +307,8 @@ endif()
 
 # Add rocm-core dependency if -DROCM_DEP_ROCMCORE=ON is passed
 if(ROCM_DEP_ROCMCORE)
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "rocm-core")
-    set(CPACK_RPM_PACKAGE_REQUIRES "rocm-core")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, rocm-core")
+    set(CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_REQUIRES}, rocm-core")
 endif()
 
 #
