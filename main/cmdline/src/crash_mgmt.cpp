@@ -1,15 +1,7 @@
 /*
- * MIT License
+ * SPDX-License-Identifier: MIT License
  *
- * Copyright (c) 2024, Advanced Micro Devices, Inc. All rights reserved.
- *
- *  Developed by:
- *
- *                  AMD ML Software Engineering
- *
- *                  Advanced Micro Devices, Inc.
- *
- *                  www.amd.com
+ * Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -17,17 +9,6 @@
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
  * and/or sell copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following conditions:
- *
- *  - Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimers.
- *  - Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimers in
- *    the documentation and/or other materials provided with the distribution.
- *  - Neither the names of Advanced Micro Devices, Inc,
- *    nor the names of its contributors may be used to endorse or promote
- *    products derived from this Software without specific prior written
- *    permission.
- *
  *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
@@ -40,8 +21,10 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
+ */
+
+/**
  * Author(s):   Daniel Oliveira <daniel.oliveira@amd.com>
- *
  *
  * Description: crash_mgmt.cpp
  *
@@ -105,7 +88,7 @@ extern "C" void trigger_safe_shutdown(int32_t signal_code = 0)
         }
         std::exit(signal_code);
     #endif
-    // clang-format on    
+    // clang-format on
 }
 
 
@@ -125,7 +108,7 @@ auto reset_crash_handler() -> void
     for (const auto signal : kSignals) {
         std::signal(signal, SIG_DFL);
     }
-} 
+}
 
 
 static auto dump_stacktrace() -> void
@@ -138,21 +121,23 @@ static auto dump_stacktrace() -> void
 static auto save_crash_file(const std::string& crash_message) -> void
 {
     wb_logger::loginfo(LogLevel::LOGGER_CRITICAL, "{}.", crash_message);
-    json::JSon_t crash_json {
-        {"logfile", wb_logger::details::get_logger_file_path()},
-        {"message", crash_message},
+    json::JSon_t crash_json{
+        {"logfile",    wb_logger::details::get_logger_file_path()        },
+        {"message",    crash_message                                     },
         {"stacktrace", amd_stacktrace::get_current_stacktrace_to_string()}
     };
 
-    const auto crash_dump_file = (wb_json::details::get_file_fs_path().stem().string() + "-" 
-                                                                                       + (wb_crash::kJSON_CRASH_FILE_POSTFIX 
-                                                                                       + "." + wb_json::kJSON_FILE_EXTENSION));
+    const auto crash_dump_file = (wb_json::details::get_file_fs_path().stem().string() + "-" +
+                                  (wb_crash::kJSON_CRASH_FILE_POSTFIX + "." + wb_json::kJSON_FILE_EXTENSION));
     for (const auto& path : paths::kDATA_PATH.write()) {
         wb_fs_io::FileOps_t json_dump_file(path / crash_dump_file, FileOpsMode_t::CREATE);
         if (json_dump_file.is_valid()) {
             json_dump_file.write_data(crash_json.dump(4));
             json_dump_file.close();
-            wb_logger::loginfo(LogLevel::LOGGER_INFO, "File: {}, written to: {}", "work-bench-crash.json", json_dump_file.get_path().string());
+            wb_logger::loginfo(LogLevel::LOGGER_INFO,
+                               "File: {}, written to: {}",
+                               "work-bench-crash.json",
+                               json_dump_file.get_path().string());
             return;
         }
     }
@@ -180,7 +165,7 @@ static auto signal_handler(int32_t signal_code, const std::string& signal_name) 
         return;
     }
     #endif
-    // clang-format on    
+    // clang-format on
 
     /*
      *  Note: Avoid recursion upon code crashes

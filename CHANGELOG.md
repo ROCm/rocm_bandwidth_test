@@ -74,6 +74,23 @@ Types of changes:
 
 Full documentation for RBT is available at [ROCm Bandwidth Test Documentation](https://rocm.docs.amd.com/projects/rocm_bandwidth_test/en/latest/index.html).
 
+## RBT for ROCm 7.1.1
+
+### Fixed
+
+- [544642]: RBT test failed with error cannot make canonical path
+- [550724]: healthcheck test fails with seg fault on gfx942
+- [553891]: schmoo & one2all observed Segmentation fault when executed on sgpu setup
+
+
+### Known Issues
+
+- [541223/562920]: rocm-bandwidth-test folder present after driver uninstallation
+    * After running `amdgpu-uninstall`, the `rocm-bandwidth-test` folder and package are still present
+    * Workaround: Remove the package manually; `sudo apt-get remove -y rocm-bandwidth-test`
+
+
+
 ## RBT for ROCm 7.0.0 (2.6.0)
 
 ### Added
