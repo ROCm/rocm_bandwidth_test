@@ -57,14 +57,32 @@ See the [full library and API documentation](https://rocm.docs.amd.com/en/latest
 
 ### Build from Source
 
-See [Build from Source](#Build_from_Source)
+See [Build from Source](https://rocm.docs.amd.com/projects/rocm_bandwidth_test/en/latest/install/install.html#building-rbt-from-source)
 
 ```bash
 git clone https://github.com/ROCm/rocm_bandwidth_test
 cd rocm_bandwidth_test
 mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug|Release
-make
+
+## Standalone build
+cmake -DCMAKE_BUILD_TYPE="Debug | Release" .. \
+        -DAMD_APP_STANDALONE_BUILD_PACKAGE=ON \
+        -DAMD_APP_ENGINEERING_BUILD_PACKAGE=OFF && cmake --build .
+
+## ROCm build
+## Assumes ROCm is installed on the build system
+cmake -DCMAKE_BUILD_TYPE="Debug | Release" .. \
+        -DAMD_APP_STANDALONE_BUILD_PACKAGE=OFF \
+        -DAMD_APP_ROCM_BUILD_PACKAGE=ON && cmake --build .
+```
+
+## Installing RBT
+```bash
+## For Makefiles
+make install
+
+## For CMake; Default install location is /opt/rocm/
+cmake --install . --prefix /path/to/install/location
 ```
 
 ## Usage
