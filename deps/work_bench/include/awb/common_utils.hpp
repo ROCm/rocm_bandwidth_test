@@ -384,7 +384,7 @@ enum class PcieThroughput_t
 // clang-format off
 #define GUARD_TOKEN_CONCATENATE_IMPL(x, y)  x##y
 #define GUARD_TOKEN_CONCATENATE(x, y)       GUARD_TOKEN_CONCATENATE_IMPL(x, y)
-#define WB_GUARD_ANONYMOUS_VAR(prefix)      GUARD_TOKEN_CONCATENATE(prefix, __COUNTER__)
+#define WB_GUARD_ANONYMOUS_VAR(prefix)      GUARD_TOKEN_CONCATENATE(prefix, __LINE__)
 // clang-format on
 
 namespace amd_work_bench::utils::scope_guard
