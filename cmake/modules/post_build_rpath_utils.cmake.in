@@ -60,6 +60,10 @@ function(_set_rpath_run_now_helper target_or_binary_file target_rpath)
         OUTPUT_VARIABLE OUTPUT_PATCHELF
         ERROR_VARIABLE ERROR_PATCHELF
     )
+    developer_status_message("DEVEL" "  >> CMD: '${PATCHELF_EXECUTABLE}' \n"
+                                     "  >> Result: ${RESULT_PATCHELF} \n"
+                                     "  >> Output: ${OUTPUT_PATCHELF} \n"
+                                     "  >> Error: ${ERROR_PATCHELF}")
 
     if(NOT RESULT_PATCHELF EQUAL 0)
         developer_status_message("DEVEL" ">> Could not run 'patchelf' for: '${target_or_binary_file}': \n"
@@ -80,7 +84,7 @@ function(_set_rpath_run_post_build_helper target_or_binary_file target_rpath)
         add_custom_command(
             TARGET ${target_or_binary_file}
             POST_BUILD
-            COMMAND ${PATCHELF_EXECUTABLE} --set-rpath ${target_rpath} "$<TARGET_FILE:${target_or_binary_file}>"
+            COMMAND sh -c "${PATCHELF_EXECUTABLE} --set-rpath ${target_rpath} \"$<TARGET_FILE:${target_or_binary_file}>\" 2>&1"
             COMMENT ">> Patching 'RPATH' for: '${target_or_binary_file}' to: '${target_rpath}'"
             VERBATIM
         )
@@ -203,6 +207,7 @@ function(binary_classify_in_target_directory)
                     COMMAND ${READELF_EXECUTABLE} -d "${CURRENT_BINARY}"
                     COMMAND ${GREP_EXECUTABLE} -i "Library runpath"
                     OUTPUT_VARIABLE OUTPUT_READELF
+                    ERROR_VARIABLE ERROR_READELF
                 )
 
                 set(current_rpath "")
@@ -233,6 +238,7 @@ function(binary_classify_in_target_directory)
                     COMMAND ${READELF_EXECUTABLE} -d "${CURRENT_BINARY}"
                     COMMAND ${GREP_EXECUTABLE} -i "Library runpath"
                     OUTPUT_VARIABLE OUTPUT_READELF
+                    ERROR_VARIABLE ERROR_READELF
                 )
 
                 set(current_rpath "")

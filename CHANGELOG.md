@@ -29,50 +29,18 @@ Types of changes:
                 – Say "Performance degradation on large files" instead of "Performance issues."
             - Track with issues
                 – Link to the relevant GitHub issues
-                    - Framework might not find plugins. [#456](https://github.com/ROCm/rocm_bandwidth_test/issues/456)
-
-------------------------------------------------------------------------------
-
-## [Unreleased : < RBT for ROCm 7.0.1 (2.6.1 / YYYY-MM-DD)]
-
-### Added
-
-- .
-
-### Changed
-
-- .
-
-### Deprecated
-
-- .
-
-### Removed
-
-- .
-
-### Fixed
-
-- .
-
-### Security
-
-- N/A
-
-
-### Known Issues
-
-- N/A
-
-
-
-------------------------------------------------------------------------------
-
--->
+                    - Framework might not find plugins. [#456](https://github.com/ROCm/rocm_bandwidth_test/issues/456) -->
 
 # Change Log for RBT
 
 Full documentation for RBT is available at [ROCm Bandwidth Test Documentation](https://rocm.docs.amd.com/projects/rocm_bandwidth_test/en/latest/index.html).
+
+
+## RBT for ROCm 7.2.0
+
+### Fixed
+
+- [541223/562920]: rocm-bandwidth-test folder no longer present after driver uninstallation
 
 ## RBT for ROCm 7.1.1
 
