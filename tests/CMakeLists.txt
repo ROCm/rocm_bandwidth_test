@@ -99,7 +99,7 @@ set(AMD_TEST_PROJECT_LINK_LIBRARIES "${AMD_TEST_LINK_LIBRARIES}" CACHE STRING "T
 set(AMD_TEST_PROJECT_COMMON_TARGET_NAME "tst_common" CACHE STRING "Tests: Common Target Name" FORCE)
 set(AMD_TEST_PROJECT_HELPERS_TARGET_NAME "tst_helpers" CACHE STRING "Tests: Helpers"  FORCE)
 set(AMD_TEST_PROJECT_PLUGINS_TARGET_NAME "tst_plugins" CACHE STRING "Tests: Plugins"  FORCE)
-set(AMD_TEST_PROJECT_LOCAL_LINK_LIBRARIES "${AMD_TEST_PROJECT_COMMON_TARGET_NAME};${AMD_TEST_PROJECT_HELPERS_TARGET_NAME};${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME}")
+set(AMD_TEST_PROJECT_LOCAL_LINK_LIBRARIES "${AMD_TEST_PROJECT_COMMON_TARGET_NAME};${AMD_TEST_PROJECT_HELPERS_TARGET_NAME};${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME};tst_unit")
 
 set(AMD_TEST_PROJECT_WORKBENCH_INCLUDE_DIRECTORIES
     "${AMD_TEST_PROJECT_EXTERNAL_DEPS_DIRECTORY}"
@@ -164,6 +164,7 @@ endif()
 add_subdirectory(common)
 add_subdirectory(helpers)
 add_subdirectory(plugins)
+add_subdirectory(unit)
 
 # Add the specific/individual plugin tests
 if(AMD_APP_BUILD_PLUGIN_TESTS)
@@ -178,6 +179,14 @@ add_executable(${PROJECT_NAME}
     common/src/test_cases_common.cpp
     helpers/src/test_cases_helpers.cpp
     plugins/src/test_cases_plugins.cpp
+    unit/src/test_string_utils.cpp
+    unit/src/test_plugin_management.cpp
+    unit/src/test_environment_utils.cpp
+    unit/src/test_memory_utils.cpp
+    unit/src/test_workbench_api.cpp
+    unit/src/test_gpu_interface.cpp
+    unit/src/test_rbt_plugin.cpp
+    unit/src/test_transferbench_types.cpp
 )
 target_compile_definitions(${PROJECT_NAME} PUBLIC AMD_WORK_BENCH_PROJECT_NAME="${PROJECT_NAME}")
 
@@ -187,6 +196,7 @@ foreach(INCLUDE_DIRECTORY IN LISTS AMD_TEST_PROJECT_INCLUDE_DIRECTORIES)
     target_include_directories(${PROJECT_NAME} 
         PRIVATE 
             $<BUILD_INTERFACE:${INCLUDE_DIRECTORY}>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/plugins/common>
     )
 endforeach()
 
@@ -211,6 +221,7 @@ add_dependencies(${PROJECT_NAME}
     ${AMD_TEST_PROJECT_COMMON_TARGET_NAME}
     ${AMD_TEST_PROJECT_HELPERS_TARGET_NAME}
     ${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME}
+    tst_unit
 )
 
 #   Enabled coverage for the tests with debug build type
