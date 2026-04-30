@@ -160,7 +160,7 @@ To use a self-hosted runner, set the variable to your runner's label (e.g., `sel
 |--------|------|----------|
 | **`release/*` branch** (`push` or `workflow_dispatch`) | `release/rbt/deb/`, `release/rbt/rpm/`, `release/rbt/tar/` | DEB → `.../deb` (Ubuntu job); RPM and TGZ → `.../rpm` and `.../tar` (manylinux job). Only PR merges into release branches or manual dispatch on release branches write here. |
 | **Scheduled**, **push to `master`/`main`**, or **`workflow_dispatch` on non-release branch** | `nightly/rbt/deb/`, `nightly/rbt/rpm/`, `nightly/rbt/tar/` | Same split by type. All non-release builds go to nightly. |
-| **Pull request** (same-repo) | `rbt/<ref_name>/<run_number>/ubuntu-22.04/` or `.../manylinux_2_28/` | DEB only (Ubuntu job); RPM+TGZ (manylinux job). One-off path, no repo metadata generated. |
+| **Pull request** (same-repo) | `rbt/pr-<number>/<run_number>/ubuntu-22.04/` or `.../manylinux_2_28/` | DEB only (Ubuntu job); RPM+TGZ (manylinux job). Uses PR number only (branch name is not in the path). No repo metadata generated. |
 
 If `AWS_S3_BUCKET` is not set, the upload step is skipped with a warning (the workflow still succeeds).
 
@@ -168,7 +168,7 @@ When packages are uploaded to S3, the **build report** artifact includes an **S3
 
 ### Repository Metadata (repodata)
 
-For **scheduled**, **push**, and **manual** (`workflow_dispatch`) builds, the workflow generates package repository metadata so that the S3 paths can be used directly as `apt` (DEB) and `yum`/`dnf` (RPM) repositories. This runs after the package upload step in each job. PR builds are excluded since their packages go to one-off ref-specific paths.
+For **scheduled**, **push**, and **manual** (`workflow_dispatch`) builds, the workflow generates package repository metadata so that the S3 paths can be used directly as `apt` (DEB) and `yum`/`dnf` (RPM) repositories. This runs after the package upload step in each job. PR builds are excluded since their packages go to one-off `rbt/pr-<number>/...` paths.
 
 **RPM repodata** (CentOS/RHEL job):
 - Tool: `createrepo_c` (falls back to `createrepo`)

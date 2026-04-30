@@ -3,10 +3,13 @@ name: Build Relocatable Packages
 on:
   push:
     branches:
-      - [amd-staging, amd-mainline, 'release/**']
+      - amd-staging
+      - amd-mainline
+      - 'release/**'
   pull_request:
     branches:
-      - [amd-staging, amd-mainline]
+      - amd-staging
+      - amd-mainline
   schedule:
     # Run daily at 5:00 AM PST (13:00 UTC; PST is UTC-8)
     - cron: '0 13 * * *'
@@ -46,7 +49,7 @@ jobs:
   # Ubuntu 22.04: DEB & TGZ
   # ----------------------------------------
   build-ubuntu:
-    name: Build Ubuntu Packages
+    name: Build (Ubuntu 22.04) Packages
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-22.04' }}
     strategy:
       matrix:
@@ -54,7 +57,7 @@ jobs:
     outputs:
       s3_bucket_ubuntu: ${{ steps.upload-s3-ubuntu.outputs.bucket }}
       s3_paths_ubuntu: ${{ steps.upload-s3-ubuntu.outputs.paths }}
-    
+
     steps:
       - name: Clean workspace
         run: |
@@ -82,7 +85,8 @@ jobs:
       - name: Build and Package RBT
         run: |
           chmod +x build_packages_local.sh
-           # Run build script with sudo (Ubuntu runner needs sudo for apt-get)
+
+          # Run build script with sudo (Ubuntu runner needs sudo for apt-get)
           sudo -E ROCM_VERSION=${{ env.ROCM_VERSION }} \
           GPU_FAMILY=${{ env.GPU_FAMILY }} \
           BUILD_TYPE=${{ env.BUILD_TYPE }} \
@@ -109,6 +113,16 @@ jobs:
             echo "Package filename: $DEB_FILE"
           fi
 
+      - name: Upload artifacts (always, for inspection)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-22.04-packages
+          path: |
+            build/amdrocm*-rocm-bandwidth-test*.deb
+            build/amdrocm*-rocm-bandwidth-test*.rpm
+            build/amdrocm*-rocm-bandwidth-test*.tar.gz
+          if-no-files-found: error
+
       # S3 upload for repo ROCm/rocm_bandwidth_test (schedule, push, pull request, manual)
       - name: Install AWS CLI
         if: github.repository == 'ROCm/rocm_bandwidth_test'
@@ -133,41 +147,32 @@ jobs:
         env:
           AWS_DEFAULT_REGION: us-east-1
 
-      # S3 routing: release/* (push/manual) → release/; schedule/push/manual → nightly/; else → ref-specific
+      # S3 routing: release/* → release/; default branch builds → nightly/; PRs → pr-<number>/ (no branch name in path)
       - name: Upload Ubuntu packages to S3
         id: upload-s3-ubuntu
-        if: github.repository == 'ROCm/rocm_bandwidth_test'
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && vars.AWS_S3_BUCKET != ''
+        env:
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          # PR uploads use PR number only so development branch names are not exposed in S3 keys.
+          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
         run: |
-          BUCKET="${{ vars.AWS_S3_BUCKET }}"
-          if [ -z "$BUCKET" ]; then
-            echo "::warning::AWS_S3_BUCKET not set. Skipping S3 upload."
-            exit 0
-          fi
-          BASE="rbt"
-          if [[ "${{ github.ref }}" == refs/heads/release/* ]] && { [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; }; then
-            echo "Release branch build: uploading to release/rbt/deb"
-            aws s3 cp ./build "s3://${BUCKET}/release/${BASE}/deb/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.deb" --no-progress
-            echo "Listing s3://${BUCKET}/release/${BASE}/deb/"
-            aws s3 ls "s3://${BUCKET}/release/${BASE}/deb/" --human-readable
-            echo "bucket=${BUCKET}" >> $GITHUB_OUTPUT
-            echo "paths=Ubuntu DEB|release/${BASE}/deb" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Nightly/push build: uploading to nightly/rbt/deb"
-            aws s3 cp ./build "s3://${BUCKET}/nightly/${BASE}/deb/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.deb" --no-progress
-            echo "Listing s3://${BUCKET}/nightly/${BASE}/deb/"
-            aws s3 ls "s3://${BUCKET}/nightly/${BASE}/deb/" --human-readable
-            echo "bucket=${BUCKET}" >> $GITHUB_OUTPUT
-            echo "paths=Ubuntu DEB|nightly/${BASE}/deb" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            S3_PATH="s3://${AWS_S3_BUCKET}/rbt/pr-${PR_NUMBER}/${GITHUB_RUN_NUMBER}/ubuntu-22.04"
+            METADATA="skip"
+          elif [[ "${GITHUB_REF_NAME}" == release/* ]]; then
+            S3_PATH="s3://${AWS_S3_BUCKET}/release/rbt/deb"
+            METADATA="generate"
           else
-            PREFIX="${BASE}/${{ github.ref_name }}/${{ github.run_number }}/ubuntu-${{ matrix.ubuntu_version }}"
-            echo "Uploading to s3://${BUCKET}/${PREFIX}/"
-            aws s3 cp ./build "s3://${BUCKET}/${PREFIX}/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.deb" --no-progress
-            echo "Listing s3://${BUCKET}/${PREFIX}/"
-            aws s3 ls "s3://${BUCKET}/${PREFIX}/" --human-readable
-            echo "bucket=${BUCKET}" >> $GITHUB_OUTPUT
-            echo "paths=Ubuntu DEB|${PREFIX}" >> $GITHUB_OUTPUT
+            S3_PATH="s3://${AWS_S3_BUCKET}/nightly/rbt/deb"
+            METADATA="generate"
           fi
-          echo "Done."
+          echo "S3_DEB_PATH=${S3_PATH}"      >> "$GITHUB_ENV"
+          echo "DEB_METADATA=${METADATA}"    >> "$GITHUB_ENV"
+          aws s3 cp build/ "${S3_PATH}/" --recursive --exclude "*" \
+            --include "amdrocm*-rocm-bandwidth-test*.deb" \
+            --include "amdrocm*-rocm-bandwidth-test*.tar.gz"
+          echo "Uploaded to ${S3_PATH}"
 
       # Generate APT repo metadata (Packages, Packages.gz, Release) so the S3 path
       # can be consumed directly as a DEB repository by apt.
@@ -220,7 +225,7 @@ jobs:
     outputs:
       s3_bucket_centos: ${{ steps.upload-s3-centos.outputs.bucket }}
       s3_paths_centos: ${{ steps.upload-s3-centos.outputs.paths }}
-    
+
     steps:
       - name: Install Git (for checkout)
         run: |
@@ -247,7 +252,7 @@ jobs:
       - name: Build and Package RBT
         run: |
           chmod +x build_packages_local.sh
-          
+
           ROCM_VERSION=${{ env.ROCM_VERSION }} \
           GPU_FAMILY=${{ env.GPU_FAMILY }} \
           BUILD_TYPE=${{ env.BUILD_TYPE }} \
@@ -271,6 +276,15 @@ jobs:
             echo ""
             echo "Package filename: $RPM_FILE"
           fi
+
+      - name: Upload artifacts (always, for inspection)
+        uses: actions/upload-artifact@v4
+        with:
+          name: centos-packages
+          path: |
+            build/amdrocm*-rocm-bandwidth-test*.rpm
+            build/amdrocm*-rocm-bandwidth-test*.tar.gz
+          if-no-files-found: error
 
       # S3 upload for repo ROCm/rocm_bandwidth_test (schedule, push, pull request, manual)
       - name: Install AWS CLI
@@ -297,48 +311,38 @@ jobs:
         env:
           AWS_DEFAULT_REGION: us-east-1
 
-      # S3 routing: release/* (push/manual) → release/; schedule/push/manual → nightly/; else → ref-specific
+      # S3 routing: release/* → release/; default branch builds → nightly/; PRs → pr-<number>/ (no branch name in path)
       - name: Upload CentOS/RHEL packages to S3
         id: upload-s3-centos
-        if: github.repository == 'ROCm/rocm_bandwidth_test'
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && vars.AWS_S3_BUCKET != ''
+        env:
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          # PR uploads use PR number only so development branch names are not exposed in S3 keys.
+          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
+          DISTRO_SEGMENT: ${{ matrix.distro }}
         run: |
-          BUCKET="${{ vars.AWS_S3_BUCKET }}"
-          if [ -z "$BUCKET" ]; then
-            echo "::warning::AWS_S3_BUCKET not set. Skipping S3 upload."
-            exit 0
-          fi
+          set -euo pipefail
           BASE="rbt"
-          if [[ "${{ github.ref }}" == refs/heads/release/* ]] && { [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; }; then
-            echo "Release branch build: uploading to release/rbt/rpm and release/rbt/tar"
-            aws s3 cp ./build "s3://${BUCKET}/release/${BASE}/rpm/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.rpm" --no-progress
-            aws s3 cp ./build "s3://${BUCKET}/release/${BASE}/tar/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.tar.gz" --no-progress
-            echo "Listing s3://${BUCKET}/release/${BASE}/rpm/"
-            aws s3 ls "s3://${BUCKET}/release/${BASE}/rpm/" --human-readable
-            echo "Listing s3://${BUCKET}/release/${BASE}/tar/"
-            aws s3 ls "s3://${BUCKET}/release/${BASE}/tar/" --human-readable
-            echo "bucket=${BUCKET}" >> $GITHUB_OUTPUT
-            echo "paths=CentOS/RHEL RPM|release/${BASE}/rpm||CentOS/RHEL TGZ|release/${BASE}/tar" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Nightly/push build: uploading to nightly/rbt/rpm and nightly/rbt/tar"
-            aws s3 cp ./build "s3://${BUCKET}/nightly/${BASE}/rpm/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.rpm" --no-progress
-            aws s3 cp ./build "s3://${BUCKET}/nightly/${BASE}/tar/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.tar.gz" --no-progress
-            echo "Listing s3://${BUCKET}/nightly/${BASE}/rpm/"
-            aws s3 ls "s3://${BUCKET}/nightly/${BASE}/rpm/" --human-readable
-            echo "Listing s3://${BUCKET}/nightly/${BASE}/tar/"
-            aws s3 ls "s3://${BUCKET}/nightly/${BASE}/tar/" --human-readable
-            echo "bucket=${BUCKET}" >> $GITHUB_OUTPUT
-            echo "paths=CentOS/RHEL RPM|nightly/${BASE}/rpm||CentOS/RHEL TGZ|nightly/${BASE}/tar" >> $GITHUB_OUTPUT
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            S3_PATH="s3://${AWS_S3_BUCKET}/${BASE}/pr-${PR_NUMBER}/${GITHUB_RUN_NUMBER}/${DISTRO_SEGMENT}"
+          elif [[ "${GITHUB_REF_NAME}" == release/* ]]; then
+            S3_PATH="s3://${AWS_S3_BUCKET}/release/${BASE}/rpm"
           else
-            PREFIX="${BASE}/${{ github.ref_name }}/${{ github.run_number }}/${{ matrix.distro }}"
-            echo "Uploading to s3://${BUCKET}/${PREFIX}/"
-            aws s3 cp ./build "s3://${BUCKET}/${PREFIX}/" --recursive --exclude "*" --include "amdrocm*-rocm-bandwidth-test*.rpm" --include "amdrocm*-rocm-bandwidth-test*.tar.gz" --no-progress
-            echo "Listing s3://${BUCKET}/${PREFIX}/"
-            aws s3 ls "s3://${BUCKET}/${PREFIX}/" --human-readable
-            echo "bucket=${BUCKET}" >> $GITHUB_OUTPUT
-            echo "paths=CentOS/RHEL packages|${PREFIX}" >> $GITHUB_OUTPUT
+            S3_PATH="s3://${AWS_S3_BUCKET}/nightly/${BASE}/rpm"
           fi
-          echo "Done."
-      
+          aws s3 cp build/ "${S3_PATH}/" --recursive --exclude "*" \
+            --include "amdrocm*-rocm-bandwidth-test*.rpm" \
+            --include "amdrocm*-rocm-bandwidth-test*.tar.gz"
+          echo "Uploaded to ${S3_PATH}"
+          echo "bucket=${AWS_S3_BUCKET}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            echo "paths=CentOS/RHEL packages|${BASE}/pr-${PR_NUMBER}/${GITHUB_RUN_NUMBER}/${DISTRO_SEGMENT}" >> "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_REF_NAME}" == release/* ]]; then
+            echo "paths=CentOS/RHEL RPM & TGZ|release/${BASE}/rpm" >> "$GITHUB_OUTPUT"
+          else
+            echo "paths=CentOS/RHEL RPM & TGZ|nightly/${BASE}/rpm" >> "$GITHUB_OUTPUT"
+          fi
+
       # Generate YUM/DNF repo metadata (repodata/) so the S3 path can be consumed
       # directly as an RPM repository by yum/dnf.
       # Only runs when the repository is ROCm/rocm_bandwidth_test and the event is schedule, push, or manual.
@@ -378,7 +382,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_LABEL_UTILITY || 'ubuntu-latest' }}
     # Only runs when the workflow is not cancelled and always() is true
     if: always() && !cancelled()
-    
+
     steps:
       - name: Generate Build Report
         run: |

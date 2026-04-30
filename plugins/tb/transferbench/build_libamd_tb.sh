@@ -32,6 +32,7 @@ TARGET_RPATH="\$ORIGIN:\$ORIGIN/llvm/lib"
 CXX=$BUILD_HIPCC_BINARY cmake   -S "$PARENT_DIR" \
                                 -B "$BUILD_DIRECTORY" \
                                 -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+                                -DHIP_PLATFORM=amd \
                                 -DBUILD_INTERNAL_BINARY_VERSION="$BUILD_INTERNAL_BINARY_VERSION" \
                                 -DCMAKE_INSTALL_RPATH="$TARGET_RPATH" \
                                 -DCMAKE_BUILD_RPATH="$TARGET_RPATH" \

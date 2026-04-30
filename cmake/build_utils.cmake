@@ -97,7 +97,7 @@ function(setup_rocm_auto_build_environment is_auto_detect_rocm_build is_rocm_bui
 endfunction()
 
 function(setup_build_version version_num version_text)
-    if(AMD_APP_ROCM_BUILD_PACKAGE)
+    if(AMD_APP_ROCM_BUILD_PACKAGE OR AMD_APP_BUILD_RELOCATABLE_PACKAGE)
         set(TARGET_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION_ROCM_PKG")
     else()
         set(TARGET_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
@@ -1359,6 +1359,7 @@ macro(setup_distribution_package)
             set(AMD_TARGET_INSTALL_PERMISSIONS \"\")
             set(AMD_TARGET_INSTALL_STAGING \"${AMD_TARGET_INSTALL_STAGING}\")
         ")
+
     elseif(AMD_APP_ROCM_BUILD_PACKAGE)
         ## ROCm build package
         set(AMD_TARGET_POST_BUILD_ENV "${CMAKE_BINARY_DIR}/post_build_utils_env.cmake")
@@ -1419,6 +1420,113 @@ macro(setup_distribution_package)
         if(CPACK_RPM_PACKAGE_RELEASE)
             set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
         endif()
+    elseif(AMD_APP_BUILD_RELOCATABLE_PACKAGE)
+        set(AMD_TARGET_BUNDLE_BASE_NAME ${AMD_PROJECT_NAME})
+        if(AMD_TARGET_BUNDLE_BASE_NAME STREQUAL "")
+            set(AMD_TARGET_BUNDLE_BASE_NAME "rocm-bandwidth-test")
+        endif()
+        string(REPLACE "_" "-" AMD_TARGET_BUNDLE_BASE_NAME "${AMD_TARGET_BUNDLE_BASE_NAME}")
+
+        set(AMD_TARGET_INSTALL_STAGING "/var/tmp/${AMD_TARGET_NAME}/_staging")
+        set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
+        set(CPACK_PACKAGE_NAME "amdrocm${ROCM_MAJOR_VERSION}-${AMD_TARGET_BUNDLE_BASE_NAME}")
+
+        ## Standard package directives for all package build types
+        string(TIMESTAMP CURRENT_BUILD_YEAR "%Y")
+        set(AMD_PROJECT_COPYRIGHT_ORGANIZATION "Advanced Micro Devices, Inc. All rights reserved.")
+        set(AMD_PROJECT_COPYRIGHT_NOTE "Copyright (c) ${CURRENT_BUILD_YEAR} ${AMD_PROJECT_COPYRIGHT_ORGANIZATION}")
+
+        set(CPACK_PACKAGE_VENDOR ${AMD_PROJECT_AUTHOR_ORGANIZATION})
+        set(CPACK_PACKAGE_VERSION_MAJOR ${AMD_PROJECT_VERSION_MAJOR})
+        set(CPACK_PACKAGE_VERSION_MINOR ${AMD_PROJECT_VERSION_MINOR})
+        set(CPACK_PACKAGE_VERSION_PATCH ${AMD_PROJECT_VERSION_PATCH})
+        set(CPACK_PACKAGE_CONTACT ${AMD_PROJECT_AUTHOR_MAINTAINER})
+        set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+
+        # Debian package specific variables
+        set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${AMD_PROJECT_GITHUB_REPO})
+        set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+        # RPM package specific variables
+        set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
+        set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+        set(CPACK_GENERATOR "DEB;RPM")
+
+        ## ROCm build package
+        set(AMD_TARGET_POST_BUILD_ENV "${CMAKE_BINARY_DIR}/post_build_utils_env.cmake")
+        file(WRITE ${AMD_TARGET_POST_BUILD_ENV} "" "
+            set(AMD_TARGET_PROJECT_BASE \"${CMAKE_CURRENT_SOURCE_DIR}\")
+            set(AMD_TARGET_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")
+            set(AMD_TARGET_INSTALL_FLAG_TYPE \"ROCM_RELOCATABLE_PACKAGE\")
+            set(AMD_TARGET_NAME \"${AMD_TARGET_NAME}\")
+            set(AMD_TARGET_INSTALL_TYPE \"${ROCM_PATH}\")
+            set(AMD_TARGET_INSTALL TRUE)
+            set(AMD_TARGET_INSTALL_DIRECTORY \"\")
+            set(AMD_TARGET_INSTALL_PERMISSIONS \"\")
+            set(AMD_TARGET_INSTALL_STAGING \"${AMD_TARGET_INSTALL_STAGING}\")
+            set(AMD_TARGET_INSTALL_TRY_RPATH \"${AMD_APP_ROCM_BUILD_TRY_RPATH}\")
+        ")
+
+        ## If the staging directory exists, remove it
+        ## This is to ensure that we have a clean staging directory for the package build
+        if(EXISTS "${AMD_TARGET_INSTALL_STAGING}")
+            file(REMOVE_RECURSE "${AMD_TARGET_INSTALL_STAGING}")
+        endif()
+
+        ## Package directives (ROCm build)
+        ## Make proper version for appending
+        if(NOT DEFINED ROCM_MAJOR_VERSION)
+            set(ROCM_MAJOR_VERSION "7")
+        endif()
+
+        if(DEFINED ENV{CPACK_RPM_PACKAGE_RELEASE})
+            set(CPACK_RPM_PACKAGE_RELEASE "$ENV{CPACK_RPM_PACKAGE_RELEASE}")
+        endif()
+
+        # Use the actual install prefix (caller-controlled in relocatable mode)
+        # rather than hard-coded /opt/... paths.
+        if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
+            set(_rpm_exclude_prefix "${CPACK_PACKAGING_INSTALL_PREFIX}")
+        else()
+            set(_rpm_exclude_prefix "${CMAKE_INSTALL_PREFIX}")
+        endif()
+        set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
+            "/opt" "/opt/rocm"
+            "${_rpm_exclude_prefix}"
+            "${_rpm_exclude_prefix}/bin"
+        )
+
+        #
+        ## DEB
+        set(CPACK_DEBIAN_PACKAGE_NAME       "${CPACK_PACKAGE_NAME}")
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS    "numactl, libnuma1, hsa-rocr, libstdc++6")
+        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
+        if(DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
+            set(CPACK_DEBIAN_PACKAGE_RELEASE "$ENV{CPACK_DEBIAN_PACKAGE_RELEASE}")
+        endif()
+
+        #
+        ## RPM
+        set(CPACK_RPM_PACKAGE_NAME    "${CPACK_PACKAGE_NAME}")
+        set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+        set(CPACK_RPM_PACKAGE_REQUIRES "numactl, hsa-rocr")
+        set(CPACK_RPM_PACKAGE_VENDOR  "${CPACK_PACKAGE_VENDOR}")
+
+        #
+        ##
+        set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ROCm utility tool for benchmarking device performance")
+
+        #
+        ## TGZ
+        set(CPACK_ARCHIVE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-Linux")
+        set(CPACK_GENERATOR "DEB;RPM;TGZ")
+
+        if(DEFINED ENV{ROCM_LIBPATCH_VERSION})
+            set(ROCM_VERSION_FOR_PACKAGE $ENV{ROCM_LIBPATCH_VERSION})
+        endif()
+        set(CPACK_SOURCE_IGNORE_FILES "${AMD_TARGET_INSTALL_STAGING}/;${CPACK_SOURCE_IGNORE_FILES}")
+        set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION}.${ROCM_VERSION_FOR_PACKAGE}")
+        set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ROCm utility tool for benchmarking device performance")
 
     else()
         message(FATAL_ERROR ">> No distribution package type was not defined!")
