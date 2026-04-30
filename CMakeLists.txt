@@ -280,26 +280,24 @@ if(AMD_APP_STANDALONE_BUILD_PACKAGE OR AMD_APP_ENGINEERING_BUILD_PACKAGE)
         set(AMD_STANDALONE_STAGING_INSTALL_SYMLINKDIR "bin")
 
         ##  This installs $prefix/lib and $prefix/lib/plugins ($prefix/lib/<your_package_name>/plugins)
-        ##  Note: The ending '/' in the is important ${DIRECTORY} is important.
+        ##  Note: The ending '/' in ${DIRECTORY} is important.
         set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_STAGING_INSTALL_PATH}/${AMD_STANDALONE_STAGING_INSTALL_LIBDIR}")
         install(DIRECTORY "${AMD_TARGET_INSTALL_STAGING_AREA_BASE}/${AMD_TARGET_INSTALL_PATH}/"
-                DESTINATION "${AMD_TARGET_INSTALL_PATH}"
+                DESTINATION "${AMD_STANDALONE_STAGING_INSTALL_LIBDIR}"
                 USE_SOURCE_PERMISSIONS
         )
 
         ##  This installs $prefix/bin
         set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_STAGING_INSTALL_PATH}/${AMD_STANDALONE_STAGING_INSTALL_BINDIR}")
         install(DIRECTORY "${AMD_TARGET_INSTALL_STAGING_AREA_BASE}/${AMD_TARGET_INSTALL_PATH}/"
-                DESTINATION "${AMD_TARGET_INSTALL_PATH}"
+                DESTINATION "${AMD_STANDALONE_STAGING_INSTALL_BINDIR}"
                 USE_SOURCE_PERMISSIONS
         )
 
         ## This install documentation
-        set(AMD_TARGET_INSTALL_PATH
-		"${AMD_ROCM_STAGING_INSTALL_PATH}/${AMD_STANDALONE_STAGING_INSTALL_DOCDIR}/${CPACK_PACKAGE_NAME}")
         set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
-        install(FILES ${CPACK_RESOURCE_FILE_LICENSE} DESTINATION ${AMD_TARGET_INSTALL_PATH})
-
+        install(FILES ${CPACK_RESOURCE_FILE_LICENSE}
+                DESTINATION "${AMD_STANDALONE_STAGING_INSTALL_DOCDIR}/${CPACK_PACKAGE_NAME}")
         include(CPack)
     endif()
 endif()
