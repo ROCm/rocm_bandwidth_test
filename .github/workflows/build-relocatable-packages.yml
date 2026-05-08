@@ -1,22 +1,35 @@
 name: Build Relocatable Packages
 
+# CI/CD pipeline for building and distributing ROCm Bandwidth Test packages.
+#
+# This workflow:
+# - Builds .deb, .rpm, and .tar.gz packages for multiple platforms
+# - Uploads packages to S3 with routing:
+#   - release/* → s3://bucket/release/rbt/{deb,rpm,tar}/
+#   - nightly   → s3://bucket/nightly/rbt/{deb,rpm,tar}/
+#   - PRs       → s3://bucket/rbt/<ref>/<run>/<platform>/
+# - Generates APT/YUM repository metadata for release/nightly channels
+#
+# For full hardware validation with GPU bandwidth testing, see:
+# rbt-nightly-tests.yml (consumes tarballs from s3://bucket/nightly/rbt/tar/)
+
 on:
   push:
     branches:
-      - amd-staging
+      - develop
       - amd-mainline
       - 'release/**'
   pull_request:
     branches:
-      - amd-staging
+      - develop
       - amd-mainline
   schedule:
-    # Run daily at 5:00 AM PST (13:00 UTC; PST is UTC-8)
+    # Run daily at 1:00 PM UTC (nightly builds)
     - cron: '0 13 * * *'
   workflow_dispatch:
     inputs:
       rocm_version:
-        description: 'ROCm version (empty = auto-fetch latest from TheRock)'
+        description: 'Optional pin — empty uses latest nightly (unless vars.ROCM_VERSION set). Release X.Y.Z vs nightly x.y.za… selects tarball host by format.'
         required: false
         default: ''
       gpu_family:
@@ -29,80 +42,241 @@ on:
           - gfx110X-all
           - gfx1151
           - gfx120X-all
-        default: 'gfx110X-all'
+        default: 'gfx94X-dcgpu'
 
 permissions:
   contents: read
   id-token: write
 
 env:
-  ROCM_VERSION: ${{ vars.ROCM_VERSION || '7.11.0a20260121' }}
-  GPU_FAMILY: ${{ vars.GPU_FAMILY || 'gfx110X-all' }}
+  # Leave unset unless you pin a version via repo variable or workflow_dispatch input.
+  ROCM_VERSION: ${{ vars.ROCM_VERSION }}
+  GPU_FAMILY: ${{ vars.GPU_FAMILY || 'gfx94X-dcgpu' }}
   BUILD_TYPE: Release
   # Optional Step 6 in build_packages_local.sh: set repo Actions variable
   # RBT_AUTO_DETECT_LOCAL_UPLOAD to "1" to probe localhost:8080 when UPLOAD_TARGET is unset.
-  # Leave the variable undefined for default (no probe; S3 uses workflow steps only).
   RBT_AUTO_DETECT_LOCAL_UPLOAD: ${{ vars.RBT_AUTO_DETECT_LOCAL_UPLOAD }}
 
 jobs:
   # ----------------------------------------
-  # Ubuntu 22.04: DEB & TGZ
+  # Resolve which branches to build.
+  # Non-schedule events: just the triggering branch.
+  # Schedule: default branch + any branches matching vars.ACTIVE_BRANCHES glob patterns.
+  # ----------------------------------------
+  prepare-nightly-branches:
+    name: Prepare nightly branch matrix
+    runs-on: ${{ vars.RUNNER_LABEL_UTILITY || 'ubuntu-latest' }}
+    outputs:
+      branches_json: ${{ steps.branches.outputs.branches_json }}
+    steps:
+      - name: Resolve branch matrix
+        id: branches
+        env:
+          ACTIVE_BRANCHES: ${{ vars.ACTIVE_BRANCHES }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import urllib.request
+
+          def list_remote_branches():
+              token = os.environ["GITHUB_TOKEN"]
+              repo = os.environ["GITHUB_REPOSITORY"]
+              names = []
+              page = 1
+              while True:
+                  url = (
+                      f"https://api.github.com/repos/{repo}/branches"
+                      f"?per_page=100&page={page}"
+                  )
+                  req = urllib.request.Request(
+                      url,
+                      headers={
+                          "Authorization": f"Bearer {token}",
+                          "Accept": "application/vnd.github+json",
+                          "User-Agent": "rbt-build-relocatable-packages",
+                      },
+                  )
+                  with urllib.request.urlopen(req) as resp:
+                      batch = json.loads(resp.read().decode())
+                  if not batch:
+                      break
+                  for item in batch:
+                      names.append(item["name"])
+                  if len(batch) < 100:
+                      break
+                  page += 1
+              return names
+
+          def branch_prefix(name: str) -> str:
+              return name.split("/", 1)[0] if "/" in name else name
+
+          def glob_match(name: str, pattern: str) -> bool:
+              regex_parts = []
+              i = 0
+              while i < len(pattern):
+                  if pattern[i : i + 2] == "**":
+                      regex_parts.append(".*")
+                      i += 2
+                  elif pattern[i] == "*":
+                      regex_parts.append("[^/]*")
+                      i += 1
+                  else:
+                      regex_parts.append(re.escape(pattern[i]))
+                      i += 1
+              return re.fullmatch("".join(regex_parts), name) is not None
+
+          def skip_upload_schedule(branch: str) -> bool:
+              return branch == "release" or branch.startswith("release/")
+
+          event = os.environ["EVENT_NAME"]
+          default = os.environ["DEFAULT_BRANCH"]
+
+          if event != "schedule":
+              if event == "pull_request":
+                  branch = os.environ.get("PR_HEAD_REF") or os.environ["REF_NAME"]
+              else:
+                  branch = os.environ["REF_NAME"]
+              branches = [{
+                  "branch": branch,
+                  "is_default": branch == default,
+                  "skip_upload": False,
+                  "branch_prefix": branch_prefix(branch),
+              }]
+          else:
+              patterns = [
+                  p.strip()
+                  for p in os.environ.get("ACTIVE_BRANCHES", "").split(",")
+                  if p.strip()
+              ]
+              remote_names = list_remote_branches()
+
+              matched = set()
+              for pattern in patterns:
+                  for name in remote_names:
+                      if glob_match(name, pattern) and name != default:
+                          matched.add(name)
+
+              branches = [{
+                  "branch": default,
+                  "is_default": True,
+                  "skip_upload": False,
+                  "branch_prefix": branch_prefix(default),
+              }]
+              for name in sorted(matched):
+                  branches.append({
+                      "branch": name,
+                      "is_default": False,
+                      "skip_upload": skip_upload_schedule(name),
+                      "branch_prefix": branch_prefix(name),
+                  })
+
+          payload = json.dumps(branches)
+          print(payload)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"branches_json={payload}\n")
+          PY
+
+  # ----------------------------------------
+  # Ubuntu 22.04: DEB & TGZ (ubuntu:22.04 container, runs as root)
   # ----------------------------------------
   build-ubuntu:
-    name: Build (Ubuntu 22.04) Packages
+    name: Build Ubuntu Packages (${{ matrix.branch }})
+    needs: prepare-nightly-branches
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-22.04' }}
+    container:
+      image: ubuntu:22.04
+      options: --add-host=host.docker.internal:host-gateway
     strategy:
+      fail-fast: false
       matrix:
-        ubuntu_version: ['22.04']
+        include: ${{ fromJson(needs.prepare-nightly-branches.outputs.branches_json) }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
     outputs:
       s3_bucket_ubuntu: ${{ steps.upload-s3-ubuntu.outputs.bucket }}
       s3_paths_ubuntu: ${{ steps.upload-s3-ubuntu.outputs.paths }}
 
     steps:
-      - name: Clean workspace
+      - name: Bootstrap container (git, curl, packaging tools)
         run: |
-          sudo rm -rf "${{ github.workspace }}/build" || true
-          sudo chown -R $(id -u):$(id -g) "${{ github.workspace }}" || true
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            git \
+            dpkg-dev \
+            apt-utils \
+            python3 \
+            python3-pip
 
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ matrix.branch }}
           submodules: recursive
-          fetch-depth: 0    # branch.commit version tag
+          fetch-depth: 0
 
-      - name: Set ROCm Version and GPU Family
+      - name: Set build branch context
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "ROCM_VERSION=" >> $GITHUB_ENV
-            echo "Scheduled run: build script will auto-fetch latest ROCm version"
-          elif [ -n "${{ github.event.inputs.rocm_version }}" ]; then
-            echo "ROCM_VERSION=${{ github.event.inputs.rocm_version }}" >> $GITHUB_ENV
-          fi
-          if [ -n "${{ github.event.inputs.gpu_family }}" ]; then
-            echo "GPU_FAMILY=${{ github.event.inputs.gpu_family }}" >> $GITHUB_ENV
-          fi
+          echo "RBT_BUILD_REF_NAME=${{ matrix.branch }}" >> "$GITHUB_ENV"
+          echo "RBT_IS_DEFAULT_BRANCH=${{ matrix.is_default }}" >> "$GITHUB_ENV"
+          echo "RBT_SKIP_UPLOAD=${{ matrix.skip_upload }}" >> "$GITHUB_ENV"
+          echo "RBT_BRANCH_PREFIX=${{ matrix.branch_prefix }}" >> "$GITHUB_ENV"
+
+      - name: Configure ROCm SDK channel and version
+        run: bash .github/scripts/configure-rocm-sdk-channel.sh
+        env:
+          INPUT_ROCM_VERSION: ${{ github.event.inputs.rocm_version }}
+          VAR_ROCM_VERSION: ${{ vars.ROCM_VERSION }}
+          INPUT_GPU_FAMILY: ${{ github.event.inputs.gpu_family }}
+          ROCM_SDK_RELEASE_URL: ${{ vars.ROCM_SDK_RELEASE_URL }}
+          ROCM_SDK_RELEASE_BASE_URL: ${{ vars.ROCM_SDK_RELEASE_BASE_URL }}
+          ROCM_SDK_NIGHTLY_BASE_URL: ${{ vars.ROCM_SDK_NIGHTLY_BASE_URL }}
+          ROCM_SDK_NIGHTLY_INDEX_URL: ${{ vars.ROCM_SDK_NIGHTLY_INDEX_URL }}
+
+      - name: Configure local package upload
+        if: vars.LOCAL_PACKAGE_SERVER_URL != ''
+        run: |
+          echo "UPLOAD_TARGET=${{ vars.LOCAL_PACKAGE_SERVER_URL }}" >> "$GITHUB_ENV"
 
       - name: Build and Package RBT
         run: |
           chmod +x build_packages_local.sh
-
-          # Run build script with sudo (Ubuntu runner needs sudo for apt-get)
-          sudo -E ROCM_VERSION=${{ env.ROCM_VERSION }} \
-          GPU_FAMILY=${{ env.GPU_FAMILY }} \
-          BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          ROCM_SDK_BASE_URL=${{ vars.ROCM_SDK_BASE_URL }} \
-          ROCM_SDK_INDEX_URL=${{ vars.ROCM_SDK_INDEX_URL }} \
+          # Container runs as root; ROCM_SDK_* env vars set by configure-rocm-sdk-channel.sh
           ./build_packages_local.sh
 
-      - name: Fix file ownership
-        if: always()
+      - name: Print local package download URL
+        if: vars.LOCAL_PACKAGE_SERVER_URL != ''
         run: |
-          sudo chown -R $(id -u):$(id -g) "${{ github.workspace }}" || true
+          REPO="${GITHUB_REPOSITORY##*/}"
+          BRANCH="${GITHUB_REF_NAME}"
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's|[^a-zA-Z0-9._-]|-|g')
+          DATE=$(date +%Y-%m-%d)
+          URL="${{ vars.LOCAL_PACKAGE_SERVER_URL }}/${REPO}/${SAFE_BRANCH}/${DATE}/"
+          echo "================================================================"
+          echo "  Package downloads for this build (Ubuntu)"
+          echo "  $URL"
+          echo "================================================================"
+          {
+            echo "## Package Downloads (Ubuntu)"
+            echo ""
+            echo "[$URL]($URL)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify DEB Package
         run: |
           cd ./build
-          DEB_FILE=$(ls amdrocm*-rocm-bandwidth-test*.deb | head -1)
+          DEB_FILE=$(ls amdrocm*-rbt*.deb 2>/dev/null | head -1)
           if [ -n "$DEB_FILE" ]; then
             echo "=== DEB Package Info ==="
             dpkg-deb -I "$DEB_FILE"
@@ -113,23 +287,13 @@ jobs:
             echo "Package filename: $DEB_FILE"
           fi
 
-      - name: Upload artifacts (always, for inspection)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ubuntu-22.04-packages
-          path: |
-            build/amdrocm*-rocm-bandwidth-test*.deb
-            build/amdrocm*-rocm-bandwidth-test*.rpm
-            build/amdrocm*-rocm-bandwidth-test*.tar.gz
-          if-no-files-found: error
-
-      # S3 upload for repo ROCm/rocm_bandwidth_test (schedule, push, pull request, manual)
+      # S3 upload for ROCm/rocm_bandwidth_test only (skip fork PRs: OIDC token response is empty → JSON parse fails)
       - name: Install AWS CLI
-        if: github.repository == 'ROCm/rocm_bandwidth_test'
-        run: sudo apt-get update && sudo apt-get install -y awscli
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.skip_upload != true
+        run: apt-get update && apt-get install -y awscli
 
       - name: Configure AWS credentials
-        if: github.repository == 'ROCm/rocm_bandwidth_test'
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.skip_upload != true
         run: |
           TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | python3 -c "import sys,json; print(json.load(sys.stdin)['value'])")
@@ -147,50 +311,26 @@ jobs:
         env:
           AWS_DEFAULT_REGION: us-east-1
 
-      # S3 routing: release/* → release/; default branch builds → nightly/; PRs → pr-<number>/ (no branch name in path)
       - name: Upload Ubuntu packages to S3
         id: upload-s3-ubuntu
-        if: github.repository == 'ROCm/rocm_bandwidth_test' && vars.AWS_S3_BUCKET != ''
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.skip_upload != true
+        run: sh .github/scripts/rbt-s3-upload-route.sh upload-deb
         env:
           AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-          # PR uploads use PR number only so development branch names are not exposed in S3 keys.
-          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
-        run: |
-          set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            S3_PATH="s3://${AWS_S3_BUCKET}/rbt/pr-${PR_NUMBER}/${GITHUB_RUN_NUMBER}/ubuntu-22.04"
-            METADATA="skip"
-          elif [[ "${GITHUB_REF_NAME}" == release/* ]]; then
-            S3_PATH="s3://${AWS_S3_BUCKET}/release/rbt/deb"
-            METADATA="generate"
-          else
-            S3_PATH="s3://${AWS_S3_BUCKET}/nightly/rbt/deb"
-            METADATA="generate"
-          fi
-          echo "S3_DEB_PATH=${S3_PATH}"      >> "$GITHUB_ENV"
-          echo "DEB_METADATA=${METADATA}"    >> "$GITHUB_ENV"
-          aws s3 cp build/ "${S3_PATH}/" --recursive --exclude "*" \
-            --include "amdrocm*-rocm-bandwidth-test*.deb" \
-            --include "amdrocm*-rocm-bandwidth-test*.tar.gz"
-          echo "Uploaded to ${S3_PATH}"
 
-      # Generate APT repo metadata (Packages, Packages.gz, Release) so the S3 path
-      # can be consumed directly as a DEB repository by apt.
-      # Only runs when the repository is ROCm/rocm_bandwidth_test and the event is schedule, push, or manual.
+      # Generate APT repo metadata (Packages, Packages.gz, Release) for release/nightly channels.
+      # dpkg-scanpackages emits "Filename: ./foo.deb". S3/CloudFront keys are literal, so
+      # that path 404s unless we strip the leading "./".
       - name: Generate and upload DEB repo metadata to S3
-        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.skip_upload != true && (github.event_name != 'schedule' || matrix.is_default == true)
         run: |
           BUCKET="${{ vars.AWS_S3_BUCKET }}"
           [ -z "$BUCKET" ] && exit 0
 
-          sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils
-
-          BASE="rbt"
-          if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            DEB_PREFIX="release/${BASE}/deb"
-          else
-            DEB_PREFIX="nightly/${BASE}/deb"
-          fi
+          # dpkg-dev and apt-utils were installed in the Bootstrap container step.
+          set -- $(sh .github/scripts/rbt-s3-upload-route.sh deb-repo-prefix)
+          DEB_PREFIX="$1"
+          APT_SUITE="$2"
 
           STAGING=$(mktemp -d)
 
@@ -199,29 +339,54 @@ jobs:
             --exclude "Packages*" --exclude "Release*" --exclude "InRelease" \
             --no-progress || true
 
-          cp ./build/amdrocm*-rocm-bandwidth-test*.deb "$STAGING/" 2>/dev/null || true
+          cp ./build/amdrocm*-rbt*.deb "$STAGING/" 2>/dev/null || true
 
           cd "$STAGING"
           dpkg-scanpackages --multiversion . /dev/null > Packages
+          sed -i 's#^Filename: \./#Filename: #g' Packages
           gzip -k -f Packages
-          apt-ftparchive release . > Release
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin="ROCm Bandwidth Test" \
+            -o APT::FTPArchive::Release::Label="${APT_SUITE}" \
+            -o APT::FTPArchive::Release::Suite="${APT_SUITE}" \
+            -o APT::FTPArchive::Release::Codename="${APT_SUITE}" \
+            release . > Release
 
           aws s3 sync "$STAGING/" "s3://${BUCKET}/${DEB_PREFIX}/" --no-progress
 
           echo "=== DEB repo metadata uploaded to s3://${BUCKET}/${DEB_PREFIX}/ ==="
-          aws s3 ls "s3://${BUCKET}/${DEB_PREFIX}/" --human-readable
+          aws s3 ls "s3://${BUCKET}/${DEB_PREFIX}/" --human-readable || true
+        env:
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+
+      - name: Upload DEB Package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-22.04-deb-${{ matrix.branch_prefix }}
+          path: build/amdrocm*-rbt*.deb
+          if-no-files-found: error
+
+      - name: Upload TGZ Package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-22.04-tgz-${{ matrix.branch_prefix }}
+          path: build/amdrocm*-rbt*.tar.gz
+          if-no-files-found: warn
 
   # ----------------------------------------
-  # manylinux 2.28: RPM & TGZ
+  # manylinux 2.28: RPM & TGZ (container, runs as root)
   # ----------------------------------------
   build-centos:
-    name: Build CentOS/RHEL Packages (manylinux_2_28)
+    name: Build CentOS/RHEL Packages (${{ matrix.branch }})
+    needs: prepare-nightly-branches
     runs-on: ${{ vars.RUNNER_LABEL_CONTAINER || 'ubuntu-latest' }}
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64
+      options: --add-host=host.docker.internal:host-gateway
     strategy:
+      fail-fast: false
       matrix:
-        distro: ['manylinux_2_28']
+        include: ${{ fromJson(needs.prepare-nightly-branches.outputs.branches_json) }}
     outputs:
       s3_bucket_centos: ${{ steps.upload-s3-centos.outputs.bucket }}
       s3_paths_centos: ${{ steps.upload-s3-centos.outputs.paths }}
@@ -234,36 +399,60 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ matrix.branch }}
           submodules: recursive
           fetch-depth: 0
 
-      - name: Set ROCm Version and GPU Family
+      - name: Set build branch context
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "ROCM_VERSION=" >> $GITHUB_ENV
-            echo "Scheduled run: build script will auto-fetch latest ROCm version"
-          elif [ -n "${{ github.event.inputs.rocm_version }}" ]; then
-            echo "ROCM_VERSION=${{ github.event.inputs.rocm_version }}" >> $GITHUB_ENV
-          fi
-          if [ -n "${{ github.event.inputs.gpu_family }}" ]; then
-            echo "GPU_FAMILY=${{ github.event.inputs.gpu_family }}" >> $GITHUB_ENV
-          fi
+          echo "RBT_BUILD_REF_NAME=${{ matrix.branch }}" >> "$GITHUB_ENV"
+          echo "RBT_IS_DEFAULT_BRANCH=${{ matrix.is_default }}" >> "$GITHUB_ENV"
+          echo "RBT_SKIP_UPLOAD=${{ matrix.skip_upload }}" >> "$GITHUB_ENV"
+          echo "RBT_BRANCH_PREFIX=${{ matrix.branch_prefix }}" >> "$GITHUB_ENV"
+
+      - name: Configure ROCm SDK channel and version
+        run: bash .github/scripts/configure-rocm-sdk-channel.sh
+        env:
+          INPUT_ROCM_VERSION: ${{ github.event.inputs.rocm_version }}
+          VAR_ROCM_VERSION: ${{ vars.ROCM_VERSION }}
+          INPUT_GPU_FAMILY: ${{ github.event.inputs.gpu_family }}
+          ROCM_SDK_RELEASE_URL: ${{ vars.ROCM_SDK_RELEASE_URL }}
+          ROCM_SDK_RELEASE_BASE_URL: ${{ vars.ROCM_SDK_RELEASE_BASE_URL }}
+          ROCM_SDK_NIGHTLY_BASE_URL: ${{ vars.ROCM_SDK_NIGHTLY_BASE_URL }}
+          ROCM_SDK_NIGHTLY_INDEX_URL: ${{ vars.ROCM_SDK_NIGHTLY_INDEX_URL }}
+
+      - name: Configure local package upload
+        if: vars.LOCAL_PACKAGE_SERVER_URL != ''
+        run: |
+          echo "UPLOAD_TARGET=${{ vars.LOCAL_PACKAGE_SERVER_URL }}" >> "$GITHUB_ENV"
 
       - name: Build and Package RBT
         run: |
           chmod +x build_packages_local.sh
-
-          ROCM_VERSION=${{ env.ROCM_VERSION }} \
-          GPU_FAMILY=${{ env.GPU_FAMILY }} \
-          BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          ROCM_SDK_BASE_URL=${{ vars.ROCM_SDK_BASE_URL }} \
-          ROCM_SDK_INDEX_URL=${{ vars.ROCM_SDK_INDEX_URL }} \
           ./build_packages_local.sh
+
+      - name: Print local package download URL
+        if: vars.LOCAL_PACKAGE_SERVER_URL != ''
+        run: |
+          REPO="${GITHUB_REPOSITORY##*/}"
+          BRANCH="${GITHUB_REF_NAME}"
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's|[^a-zA-Z0-9._-]|-|g')
+          DATE=$(date +%Y-%m-%d)
+          URL="${{ vars.LOCAL_PACKAGE_SERVER_URL }}/${REPO}/${SAFE_BRANCH}/${DATE}/"
+          echo "================================================================"
+          echo "  Package downloads for this build (CentOS/RHEL)"
+          echo "  $URL"
+          echo "================================================================"
+          {
+            echo "## Package Downloads (CentOS/RHEL)"
+            echo ""
+            echo "[$URL]($URL)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify RPM Package
         run: |
           cd ./build
-          RPM_FILE=$(ls amdrocm*-rocm-bandwidth-test*.rpm | head -1)
+          RPM_FILE=$(ls amdrocm*-rbt*.rpm 2>/dev/null | head -1)
           if [ -n "$RPM_FILE" ]; then
             echo "=== RPM Package Info ==="
             rpm -qip "$RPM_FILE"
@@ -277,23 +466,14 @@ jobs:
             echo "Package filename: $RPM_FILE"
           fi
 
-      - name: Upload artifacts (always, for inspection)
-        uses: actions/upload-artifact@v4
-        with:
-          name: centos-packages
-          path: |
-            build/amdrocm*-rocm-bandwidth-test*.rpm
-            build/amdrocm*-rocm-bandwidth-test*.tar.gz
-          if-no-files-found: error
-
-      # S3 upload for repo ROCm/rocm_bandwidth_test (schedule, push, pull request, manual)
+      # S3 upload for ROCm/rocm_bandwidth_test only (skip fork PRs — OIDC not usable)
       - name: Install AWS CLI
-        if: github.repository == 'ROCm/rocm_bandwidth_test'
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.skip_upload != true
         run: |
           python3 -m pip install --break-system-packages awscli || (yum install -y python3-pip && pip3 install awscli)
 
       - name: Configure AWS credentials
-        if: github.repository == 'ROCm/rocm_bandwidth_test'
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.skip_upload != true
         run: |
           TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | python3 -c "import sys,json; print(json.load(sys.stdin)['value'])")
@@ -311,55 +491,24 @@ jobs:
         env:
           AWS_DEFAULT_REGION: us-east-1
 
-      # S3 routing: release/* → release/; default branch builds → nightly/; PRs → pr-<number>/ (no branch name in path)
       - name: Upload CentOS/RHEL packages to S3
         id: upload-s3-centos
-        if: github.repository == 'ROCm/rocm_bandwidth_test' && vars.AWS_S3_BUCKET != ''
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.skip_upload != true
+        run: sh .github/scripts/rbt-s3-upload-route.sh upload-rpm-tar
         env:
           AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-          # PR uploads use PR number only so development branch names are not exposed in S3 keys.
-          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
-          DISTRO_SEGMENT: ${{ matrix.distro }}
-        run: |
-          set -euo pipefail
-          BASE="rbt"
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            S3_PATH="s3://${AWS_S3_BUCKET}/${BASE}/pr-${PR_NUMBER}/${GITHUB_RUN_NUMBER}/${DISTRO_SEGMENT}"
-          elif [[ "${GITHUB_REF_NAME}" == release/* ]]; then
-            S3_PATH="s3://${AWS_S3_BUCKET}/release/${BASE}/rpm"
-          else
-            S3_PATH="s3://${AWS_S3_BUCKET}/nightly/${BASE}/rpm"
-          fi
-          aws s3 cp build/ "${S3_PATH}/" --recursive --exclude "*" \
-            --include "amdrocm*-rocm-bandwidth-test*.rpm" \
-            --include "amdrocm*-rocm-bandwidth-test*.tar.gz"
-          echo "Uploaded to ${S3_PATH}"
-          echo "bucket=${AWS_S3_BUCKET}" >> "$GITHUB_OUTPUT"
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            echo "paths=CentOS/RHEL packages|${BASE}/pr-${PR_NUMBER}/${GITHUB_RUN_NUMBER}/${DISTRO_SEGMENT}" >> "$GITHUB_OUTPUT"
-          elif [[ "${GITHUB_REF_NAME}" == release/* ]]; then
-            echo "paths=CentOS/RHEL RPM & TGZ|release/${BASE}/rpm" >> "$GITHUB_OUTPUT"
-          else
-            echo "paths=CentOS/RHEL RPM & TGZ|nightly/${BASE}/rpm" >> "$GITHUB_OUTPUT"
-          fi
 
       # Generate YUM/DNF repo metadata (repodata/) so the S3 path can be consumed
       # directly as an RPM repository by yum/dnf.
-      # Only runs when the repository is ROCm/rocm_bandwidth_test and the event is schedule, push, or manual.
       - name: Generate and upload RPM repodata to S3
-        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        if: github.repository == 'ROCm/rocm_bandwidth_test' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.skip_upload != true && (github.event_name != 'schedule' || matrix.is_default == true)
         run: |
           BUCKET="${{ vars.AWS_S3_BUCKET }}"
           [ -z "$BUCKET" ] && exit 0
 
           yum install -y createrepo_c || yum install -y createrepo
 
-          BASE="rbt"
-          if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            RPM_PREFIX="release/${BASE}/rpm"
-          else
-            RPM_PREFIX="nightly/${BASE}/rpm"
-          fi
+          RPM_PREFIX=$(sh .github/scripts/rbt-s3-upload-route.sh rpm-repo-prefix)
 
           STAGING=$(mktemp -d)
 
@@ -367,21 +516,40 @@ jobs:
           aws s3 sync "s3://${BUCKET}/${RPM_PREFIX}/" "$STAGING/" \
             --exclude "repodata/*" --no-progress || true
 
-          cp ./build/amdrocm*-rocm-bandwidth-test*.rpm "$STAGING/" 2>/dev/null || true
+          cp ./build/amdrocm*-rbt*.rpm "$STAGING/" 2>/dev/null || true
 
           createrepo_c "$STAGING" || createrepo "$STAGING"
 
           aws s3 sync "$STAGING/" "s3://${BUCKET}/${RPM_PREFIX}/" --no-progress
 
           echo "=== RPM repodata uploaded to s3://${BUCKET}/${RPM_PREFIX}/repodata/ ==="
-          aws s3 ls "s3://${BUCKET}/${RPM_PREFIX}/repodata/" --human-readable
+          aws s3 ls "s3://${BUCKET}/${RPM_PREFIX}/repodata/" --human-readable || true
+        env:
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
 
+      - name: Upload RPM Package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: centos-rpm-${{ matrix.branch_prefix }}
+          path: build/amdrocm*-rbt*.rpm
+          if-no-files-found: error
+
+      - name: Upload TGZ Package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: centos-tgz-${{ matrix.branch_prefix }}
+          path: build/amdrocm*-rbt*.tar.gz
+          if-no-files-found: error
+
+  # ----------------------------------------
+  # Collect S3 links and summarize the build.
+  # Skipped on schedule: matrix output aggregation is unreliable across dynamic matrices.
+  # ----------------------------------------
   create-release:
     name: Create Release Summary
     needs: [build-ubuntu, build-centos]
     runs-on: ${{ vars.RUNNER_LABEL_UTILITY || 'ubuntu-latest' }}
-    # Only runs when the workflow is not cancelled and always() is true
-    if: always() && !cancelled()
+    if: always() && !cancelled() && github.event_name != 'schedule'
 
     steps:
       - name: Generate Build Report
@@ -398,26 +566,26 @@ jobs:
 
           ### Ubuntu/Debian
           ```bash
-          sudo dpkg -i amdrocm*-rocm-bandwidth-test_*.deb
+          sudo dpkg -i amdrocm*-rbt_*.deb
           ```
 
           ### CentOS/RHEL
           ```bash
-          sudo rpm -i --replacefiles --nodeps amdrocm*-rocm-bandwidth-test-*.rpm
+          sudo rpm -i --replacefiles --nodeps amdrocm*-rbt-*.rpm
           ```
 
           ### Relocatable TGZ (Any Linux Distribution)
           ```bash
-          tar -xzf amdrocm*-rocm-bandwidth-test-*.tar.gz -C /opt/rocm/
-          export PATH=/opt/rocm/rbt/bin:$PATH
-          export LD_LIBRARY_PATH=/opt/rocm/rbt/lib:$LD_LIBRARY_PATH
+          sudo mkdir -p /opt/rocm/extras-<major>
+          sudo tar -xzf amdrocm*-rbt-*.tar.gz -C /opt/rocm/extras-<major>
+          export PATH=/opt/rocm/extras-<major>/bin:$PATH
+          export LD_LIBRARY_PATH=/opt/rocm/extras-<major>/lib:$LD_LIBRARY_PATH
           ```
 
           ## Notes
           - All packages are built with relocatable RPATH settings
           - TGZ packages can be extracted to any location
-          - Install path: /opt/rocm/rbt
-          - ROCm SDK from TheRock nightly builds is used
+          - Install path: /opt/rocm/extras-<rocm_major>
           REPORT
 
       - name: Add S3 upload links to build report
