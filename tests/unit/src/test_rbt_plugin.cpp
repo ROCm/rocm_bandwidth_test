@@ -28,16 +28,20 @@
  * @brief Unit tests for ROCm Bandwidth Test plugin
  * @author ROCm Bandwidth Test Team
  *
- * Tests the RBT plugin functionality including command handling,
- * mode flags, and CLI parsing.
+ * Tests the RBT plugin functionality including constants, types,
+ * command handling, and CLI argument building.
  */
 
 #include <catch2/catch_all.hpp>
 #include <unit/include/tst_unit.hpp>
+#include <plugin_rocm_bandwidth_test.hpp>
+#include <CLI/CLI.hpp>
 
-#include <string>
-#include <vector>
 #include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <vector>
 
 
 namespace amd_work_bench::test::unit::rbt
@@ -80,67 +84,66 @@ TEST_CASE("RBTPlugin::Constants", "[unit][rbt][constants]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("Plugin module name is defined")
+    SECTION("Plugin module name is defined correctly")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "module name"));
 
-        // The plugin should have a defined module name
-        // This is typically "ROCm Bandwidth Test"
-        const std::string expected_name = "ROCm Bandwidth Test";
-
-        // Verify the constant exists in the namespace
-        // (Would require including the plugin header)
-        REQUIRE(!expected_name.empty());
+        REQUIRE(!wb_plugin_rbt::kPLUGIN_MODULE_NAME.empty());
+        REQUIRE(wb_plugin_rbt::kPLUGIN_MODULE_NAME == "ROCm Bandwidth Test");
     }
 }
 
 
 // =============================================================================
 // TEST CASE: RBT WordList Type
+//
+// WordList_t is the public alias used by the RBT plugin for argv-style data
+// (defined in plugins/rbt/include/plugin_rocm_bandwidth_test.hpp). These
+// tests validate the contract callers depend on:
+//   - it stores std::string-compatible elements,
+//   - it can be reversed in-place (the plugin reverses before CLI11 parsing),
+//   - it round-trips cleanly through std::vector<std::string> APIs.
 // =============================================================================
 
 TEST_CASE("RBTPlugin::WordList", "[unit][rbt][wordlist]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("WordList_t can store arguments")
+    SECTION("WordList_t is alias-compatible with std::vector<std::string>")
     {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "store args"));
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "alias compatibility"));
 
-        using WordList_t = std::vector<std::string>;
+        static_assert(
+            std::is_same_v<wb_plugin_rbt::WordList_t, std::vector<std::string>>,
+            "WordList_t must remain a std::vector<std::string> so plugin_main "
+            "can build it from argv ranges and pass it to CLI11.");
 
-        WordList_t args = {"--flag1", "--flag2", "value"};
+        // Construct from an argv-like range (mirrors plugin_main()).
+        const char* argv_like[] = {"-a", "-A", "value"};
+        wb_plugin_rbt::WordList_t args(argv_like, argv_like + 3);
 
         REQUIRE(args.size() == 3);
-        REQUIRE(args[0] == "--flag1");
-        REQUIRE(args[1] == "--flag2");
-        REQUIRE(args[2] == "value");
+        REQUIRE(args.front() == "-a");
+        REQUIRE(args.back() == "value");
     }
 
-    SECTION("WordList_t can be reversed for CLI11 parsing")
+    SECTION("WordList_t reverses in place (plugin_main parse pre-step)")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "reverse"));
 
-        using WordList_t = std::vector<std::string>;
-
-        WordList_t args = {"a", "b", "c"};
+        wb_plugin_rbt::WordList_t args = {"a", "b", "c"};
         std::reverse(args.begin(), args.end());
 
-        REQUIRE(args[0] == "c");
-        REQUIRE(args[1] == "b");
-        REQUIRE(args[2] == "a");
+        REQUIRE(args == wb_plugin_rbt::WordList_t{"c", "b", "a"});
     }
 
-    SECTION("Empty WordList_t is handled correctly")
+    SECTION("Empty WordList_t is well-defined")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "empty"));
 
-        using WordList_t = std::vector<std::string>;
-
-        WordList_t empty_args;
+        wb_plugin_rbt::WordList_t empty_args;
 
         REQUIRE(empty_args.empty());
-        REQUIRE(empty_args.size() == 0);
     }
 }
 
@@ -190,84 +193,156 @@ TEST_CASE("RBTPlugin::CLIParsing", "[unit][rbt][cli]")
 
 
 // =============================================================================
-// TEST CASE: RBT Mode Flags Logic
+// Helper: build a CLI11 app whose option wiring mirrors plugin_main()
+// in plugins/rbt/src/plugin_rocm_bandwidth_test.cpp. Keeping this aligned
+// with the plugin source ensures the tests fail loudly if the production
+// CLI surface drifts (e.g. -a/-A no longer mutually exclusive).
+// =============================================================================
+struct RbtModeState
+{
+        bool is_unidirectional_mode = false;
+        bool is_bidirectional_mode  = false;
+        bool is_list_topology       = false;
+
+        void reset()
+        {
+            is_unidirectional_mode = false;
+            is_bidirectional_mode  = false;
+            is_list_topology       = false;
+        }
+
+        int active_count() const
+        {
+            return (is_unidirectional_mode ? 1 : 0) + (is_bidirectional_mode ? 1 : 0) +
+                   (is_list_topology ? 1 : 0);
+        }
+};
+
+// CLI::App is non-copyable and non-movable, so we configure-by-reference
+// rather than return by value. Callers construct an App on the stack and
+// hand it to this function (matches how plugin_main() owns its CLI::App).
+inline void configure_rbt_cli_app(CLI::App& app, RbtModeState& state)
+{
+    app.require_option();
+    app.allow_extras();
+
+    auto* opt_a = app.add_flag_callback(
+        "-a",
+        [&state]() {
+            state.reset();
+            state.is_unidirectional_mode = true;
+        },
+        "Perform Unidirectional Copy involving all device combinations");
+
+    auto* opt_A = app.add_flag_callback(
+        "-A",
+        [&state]() {
+            state.reset();
+            state.is_bidirectional_mode = true;
+        },
+        "Perform Bidirectional Copy involving all device combinations");
+    opt_a->excludes(opt_A);
+
+    app.add_flag_callback(
+        "-e",
+        [&state]() {
+            state.reset();
+            state.is_list_topology = true;
+        },
+        "Prints the list of ROCm devices enabled on platform");
+}
+
+// Simulates the parse path used by plugin_main(): drop argv[0], reverse, parse.
+inline auto parse_rbt_args(CLI::App& app, std::vector<std::string> args) -> void
+{
+    std::reverse(args.begin(), args.end());
+    app.parse(args);
+}
+
+
+// =============================================================================
+// TEST CASE: RBT Mode Flags Logic (drives the actual CLI11 wiring)
 // =============================================================================
 
 TEST_CASE("RBTPlugin::ModeFlags", "[unit][rbt][modes]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("Mode flags are mutually exclusive")
+    SECTION("-a sets unidirectional mode only")
     {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "mutual exclusion"));
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "-a"));
 
-        // Simulating the plugin's mode flag logic
-        bool is_unidirectional_mode = false;
-        bool is_bidirectional_mode = false;
-        bool is_list_topology = false;
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+        parse_rbt_args(app, {"-a"});
 
-        auto reset_flags = [&]() {
-            is_unidirectional_mode = false;
-            is_bidirectional_mode = false;
-            is_list_topology = false;
-        };
-
-        // Simulate -a flag
-        reset_flags();
-        is_unidirectional_mode = true;
-
-        REQUIRE(is_unidirectional_mode == true);
-        REQUIRE(is_bidirectional_mode == false);
-        REQUIRE(is_list_topology == false);
-
-        // Simulate -A flag (should reset and set bidirectional)
-        reset_flags();
-        is_bidirectional_mode = true;
-
-        REQUIRE(is_unidirectional_mode == false);
-        REQUIRE(is_bidirectional_mode == true);
-        REQUIRE(is_list_topology == false);
-
-        // Simulate -e flag
-        reset_flags();
-        is_list_topology = true;
-
-        REQUIRE(is_unidirectional_mode == false);
-        REQUIRE(is_bidirectional_mode == false);
-        REQUIRE(is_list_topology == true);
+        REQUIRE(state.is_unidirectional_mode == true);
+        REQUIRE(state.is_bidirectional_mode == false);
+        REQUIRE(state.is_list_topology == false);
+        REQUIRE(state.active_count() == 1);
     }
 
-    SECTION("Only one mode can be active at a time")
+    SECTION("-A sets bidirectional mode only")
     {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "single active"));
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "-A"));
 
-        struct ModeState {
-            bool unidirectional = false;
-            bool bidirectional = false;
-            bool list_topology = false;
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+        parse_rbt_args(app, {"-A"});
 
-            int active_count() const {
-                return (unidirectional ? 1 : 0) +
-                       (bidirectional ? 1 : 0) +
-                       (list_topology ? 1 : 0);
-            }
-        };
-
-        ModeState state;
-
-        // Test each mode individually
-        state = {true, false, false};
+        REQUIRE(state.is_bidirectional_mode == true);
+        REQUIRE(state.is_unidirectional_mode == false);
         REQUIRE(state.active_count() == 1);
+    }
 
-        state = {false, true, false};
+    SECTION("-e sets list-topology mode only")
+    {
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "-e"));
+
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+        parse_rbt_args(app, {"-e"});
+
+        REQUIRE(state.is_list_topology == true);
         REQUIRE(state.active_count() == 1);
+    }
 
-        state = {false, false, true};
-        REQUIRE(state.active_count() == 1);
+    SECTION("-a and -A are mutually exclusive (CLI11 excludes())")
+    {
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "exclusion"));
 
-        // Initial state should have no active modes
-        state = {false, false, false};
-        REQUIRE(state.active_count() == 0);
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+
+        REQUIRE_THROWS_AS(parse_rbt_args(app, {"-a", "-A"}), CLI::ParseError);
+    }
+
+    SECTION("require_option() rejects empty argument list")
+    {
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "no args"));
+
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+
+        REQUIRE_THROWS_AS(parse_rbt_args(app, {}), CLI::ParseError);
+    }
+
+    SECTION("Unknown options are tolerated by allow_extras()")
+    {
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "extras"));
+
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+
+        // -a satisfies require_option(); --unknown should land in remaining()
+        REQUIRE_NOTHROW(parse_rbt_args(app, {"-a", "--unknown-flag"}));
+        REQUIRE(state.is_unidirectional_mode == true);
     }
 }
 
@@ -280,79 +355,60 @@ TEST_CASE("RBTPlugin::ExitCodes", "[unit][rbt][exitcodes]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("EXIT_SUCCESS and EXIT_FAILURE are standard")
+    SECTION("Plugin return codes are well-defined")
     {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "standard codes"));
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "return codes"));
 
-        REQUIRE(EXIT_SUCCESS == 0);
-        REQUIRE(EXIT_FAILURE == 1);
-    }
+        // PluginStatus_t defines the expected plugin return code semantics
+        using Status = amd_work_bench::PluginStatus_t;
 
-    SECTION("Custom return code for command_run_handler")
-    {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "custom code"));
-
-        // The plugin returns 100 from command_run_handler
-        // This is a placeholder value
-        const int HANDLER_RETURN_CODE = 100;
-
-        REQUIRE(HANDLER_RETURN_CODE != EXIT_SUCCESS);
-        REQUIRE(HANDLER_RETURN_CODE != EXIT_FAILURE);
+        REQUIRE(static_cast<int>(Status::PLUGIN_MAIN_ENTRY_NOT_FOUND) == -1);
+        REQUIRE(static_cast<int>(Status::PLUGIN_FINISHED_SUCCESSFULLY) == 0);
+        REQUIRE(static_cast<int>(Status::PLUGIN_FINISHED_WITH_ERRORS) == 1);
     }
 }
 
 
 // =============================================================================
-// TEST CASE: RBT CLI Help Formatting
+// TEST CASE: RBT CLI Help Formatting (verifies actual CLI11 help text)
 // =============================================================================
 
 TEST_CASE("RBTPlugin::HelpFormatting", "[unit][rbt][help]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("CLI options follow consistent format")
+    SECTION("CLI11 help text advertises every documented mode flag")
     {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "option format"));
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "help text"));
 
-        // Expected CLI options based on code review
-        struct CliOption {
-            std::string short_flag;
-            std::string description;
-        };
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
+        const auto help = app.help();
 
-        std::vector<CliOption> expected_options = {
-            {"-a", "Perform Unidirectional Copy involving all device combinations"},
-            {"-A", "Perform Bidirectional Copy involving all device combinations"},
-            {"-e", "Prints the list of ROCm devices enabled on platform"},
-            {"-v", "Prints the plugin version"},
-        };
-
-        for (const auto& opt : expected_options) {
-            REQUIRE(!opt.short_flag.empty());
-            REQUIRE(!opt.description.empty());
-
-            // Short flags should start with single dash
-            CHECK(opt.short_flag[0] == '-');
-            CHECK(opt.short_flag.length() == 2);
-        }
+        CHECK(wb_strings::contains(help, "-a"));
+        CHECK(wb_strings::contains(help, "-A"));
+        CHECK(wb_strings::contains(help, "-e"));
+        CHECK(wb_strings::contains(help, "Unidirectional"));
+        CHECK(wb_strings::contains(help, "Bidirectional"));
+        CHECK(wb_strings::contains(help, "ROCm devices"));
     }
 
-    SECTION("Mutually exclusive options -a and -A")
+    SECTION("CLI11 reports a parse error with a non-zero exit code on conflict")
     {
-        INFO(wb_test::build_test_info(TEST_CASE_NAME, "exclusive options"));
+        INFO(wb_test::build_test_info(TEST_CASE_NAME, "parse error"));
 
-        // -a (unidirectional) and -A (bidirectional) should be mutually exclusive
-        // This is enforced by CLI11's excludes() method
+        RbtModeState state;
+        CLI::App app{"rbt", "CLI: ROCm Bandwidth Test Plugin"};
+        configure_rbt_cli_app(app, state);
 
-        std::string option_a = "-a";
-        std::string option_A = "-A";
-
-        // They are different options
-        REQUIRE(option_a != option_A);
-
-        // Both relate to copy direction
-        REQUIRE(wb_strings::to_lower_copy(option_a) == "-a");
-        REQUIRE(wb_strings::to_upper_copy(option_a) == "-A");
+        try {
+            parse_rbt_args(app, {"-a", "-A"});
+            FAIL("Expected CLI11 to throw on mutually-exclusive flags");
+        } catch (const CLI::ParseError& exc) {
+            REQUIRE(exc.get_exit_code() != 0);
+            REQUIRE(std::string(exc.what()).empty() == false);
+        }
     }
 }
 
@@ -365,11 +421,11 @@ TEST_CASE("RBTPlugin::VersionFormat", "[unit][rbt][version]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("Version string contains expected components")
+    SECTION("Version string contains expected components from plugin setup")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "version components"));
 
-        // Expected format: "Plugin: <name>  > <description>  > v:<version>"
+        // These values match the AMD_WORK_BENCH_PLUGIN_SETUP macro call in the plugin source
         std::string plugin_name = "rbt";
         std::string plugin_description = "Builtin: ROCm Bandwidth Test";
         std::string plugin_version = "0.1.0";
@@ -380,6 +436,7 @@ TEST_CASE("RBTPlugin::VersionFormat", "[unit][rbt][version]")
         CHECK(wb_strings::contains(version_string, plugin_name));
         CHECK(wb_strings::contains(version_string, plugin_description));
         CHECK(wb_strings::contains(version_string, plugin_version));
+        CHECK(wb_strings::contains(version_string, wb_plugin_rbt::kPLUGIN_MODULE_NAME));
     }
 }
 

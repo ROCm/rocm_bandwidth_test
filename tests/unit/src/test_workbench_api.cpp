@@ -35,8 +35,9 @@
 #include <catch2/catch_all.hpp>
 #include <unit/include/tst_unit.hpp>
 
+#include <array>
+#include <set>
 #include <string>
-#include <regex>
 
 
 namespace amd_work_bench::test::unit::api
@@ -50,17 +51,21 @@ TEST_CASE("WorkBenchAPI::TaskProgressState", "[unit][api][task]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("TaskProgressState_t enumeration values")
+    SECTION("TaskProgressState_t enumerators are pairwise distinct and ordered")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "state enum"));
 
         using State = wb_api_system::TaskProgressState_t;
 
-        // Verify all states exist and are distinct
-        CHECK(State::NOT_STARTED != State::IN_PROGRESS);
-        CHECK(State::IN_PROGRESS != State::COMPLETED);
-        CHECK(State::COMPLETED != State::FAILED);
-        CHECK(State::NOT_STARTED != State::FAILED);
+        const std::array<State, 4> all_states{
+            State::NOT_STARTED, State::IN_PROGRESS, State::COMPLETED, State::FAILED};
+
+        std::set<int> raw_values;
+        for (auto s : all_states) {
+            raw_values.insert(static_cast<int>(s));
+        }
+
+        REQUIRE(raw_values.size() == all_states.size());  // no aliasing
     }
 }
 
@@ -73,16 +78,21 @@ TEST_CASE("WorkBenchAPI::TaskProgress", "[unit][api][task]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
-    SECTION("TaskProgress_t enumeration values")
+    SECTION("TaskProgress_t enumerators are pairwise distinct")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "progress enum"));
 
         using Progress = wb_api_system::TaskProgress_t;
 
-        // Verify all progress types exist
-        CHECK(Progress::NORMAL != Progress::WARNING);
-        CHECK(Progress::WARNING != Progress::ERROR);
-        CHECK(Progress::NORMAL != Progress::ERROR);
+        const std::array<Progress, 3> all_progress{
+            Progress::NORMAL, Progress::WARNING, Progress::ERROR};
+
+        std::set<int> raw_values;
+        for (auto p : all_progress) {
+            raw_values.insert(static_cast<int>(p));
+        }
+
+        REQUIRE(raw_values.size() == all_progress.size());
     }
 }
 
@@ -179,12 +189,15 @@ TEST_CASE("WorkBenchAPI::SystemInfo", "[unit][api][system]")
 
         REQUIRE(!version.empty());
 
-        // Version should follow semantic versioning pattern
-        // Example: "2.6.0-debug" or "2.6.0"
+        // Version may be a semantic version string or the documented
+        // unknown placeholder when build version metadata is unavailable.
+        // Examples: "2.6.0-debug", "2.6.0", or wb_literals::kTEXT_UNKNOWN
         INFO("WorkBench version: " << version);
 
-        // Should contain at least one dot for version
-        CHECK(wb_strings::contains(version, '.'));
+        // Only enforce semantic-version formatting when a real version is set.
+        if (version != wb_literals::kTEXT_UNKNOWN) {
+            CHECK(wb_strings::contains(version, '.'));
+        }
     }
 
     SECTION("get_work_bench_commit_hash returns valid hash")
@@ -234,12 +247,8 @@ TEST_CASE("WorkBenchAPI::SystemInfo", "[unit][api][system]")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "engineering build"));
 
-        bool is_engineering = wb_api_system::get_work_bench_is_engineering_build();
-
         // Just verify it returns a valid boolean (no crash)
-        INFO("Is engineering build: " << (is_engineering ? "true" : "false"));
-
-        REQUIRE((is_engineering == true || is_engineering == false));
+        REQUIRE_NOTHROW(wb_api_system::get_work_bench_is_engineering_build());
     }
 }
 
@@ -286,10 +295,15 @@ TEST_CASE("WorkBenchAPI::MainInstance", "[unit][api][instance]")
     {
         INFO(wb_test::build_test_info(TEST_CASE_NAME, "is main instance"));
 
-        bool is_main = wb_api_system::is_main_instance();
-
-        // Should return a valid boolean
-        REQUIRE((is_main == true || is_main == false));
+        // The contract: is_main_instance() is callable from a test runner and
+        // returns a boolean (which side, true or false, is environment-dependent
+        // and not the contract under test). Verify (a) it does not throw and
+        // (b) consecutive calls are stable within a single process lifetime.
+        bool first  = false;
+        bool second = false;
+        REQUIRE_NOTHROW(first = wb_api_system::is_main_instance());
+        REQUIRE_NOTHROW(second = wb_api_system::is_main_instance());
+        REQUIRE(first == second);
     }
 }
 

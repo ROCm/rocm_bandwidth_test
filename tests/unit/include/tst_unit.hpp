@@ -46,59 +46,12 @@
 
 #include <catch2/catch_all.hpp>
 
-#include <chrono>
-#include <filesystem>
-#include <functional>
-#include <iostream>
-#include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
 
 namespace amd_work_bench::test::unit
 {
-
-/**
- * @brief Test fixture for common test setup/teardown
- */
-class TestFixture
-{
-    public:
-        TestFixture() = default;
-        virtual ~TestFixture() = default;
-
-        /**
-         * @brief Setup method called before each test
-         */
-        virtual void setup() {}
-
-        /**
-         * @brief Teardown method called after each test
-         */
-        virtual void teardown() {}
-
-    protected:
-        /**
-         * @brief Generate a unique temporary file path for testing
-         */
-        static auto get_temp_file_path(const std::string& prefix = "rbt_test_") -> std::filesystem::path
-        {
-            auto temp_dir = std::filesystem::temp_directory_path();
-            auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-            return temp_dir / (prefix + std::to_string(timestamp));
-        }
-
-        /**
-         * @brief Check if running with GPU support available
-         */
-        static auto has_gpu_support() -> bool
-        {
-            // Check for ROCm/HIP availability via environment
-            auto rocm_path = wb_utils::get_env_var("ROCM_PATH");
-            return rocm_path.has_value();
-        }
-};
 
 
 /**
@@ -133,39 +86,15 @@ class MockPlugin
         static const char* mock_plugin_get_name() { return NAME; }
         static const char* mock_plugin_get_author() { return AUTHOR; }
         static const char* mock_plugin_get_description() { return DESCRIPTION; }
-        static const char* mock_plugin_get_compatibility() { return "1.0.0"; }
+        // AMD_WORK_BENCH_VERSION is provided by tests/unit/CMakeLists.txt as a
+        // PUBLIC compile definition. The fallback below is intentionally never
+        // hit in a normal build; it exists only to keep the header self-contained
+        // for tooling (clang-tidy, IDE indexers) when build flags are missing.
+#ifndef AMD_WORK_BENCH_VERSION
+#define AMD_WORK_BENCH_VERSION "0.0.0-unspecified"
+#endif
+        static const char* mock_plugin_get_compatibility() { return AMD_WORK_BENCH_VERSION; }
         static const char* mock_plugin_get_version() { return VERSION; }
-};
-
-
-/**
- * @brief Timing utility for performance tests
- */
-class ScopedTimer
-{
-    public:
-        explicit ScopedTimer(const std::string& label = "Operation")
-            : m_label(label)
-            , m_start(std::chrono::high_resolution_clock::now())
-        {
-        }
-
-        ~ScopedTimer()
-        {
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - m_start);
-            std::cout << "[TIMING] " << m_label << ": " << duration.count() << " µs\n";
-        }
-
-        auto elapsed_us() const -> int64_t
-        {
-            auto now = std::chrono::high_resolution_clock::now();
-            return std::chrono::duration_cast<std::chrono::microseconds>(now - m_start).count();
-        }
-
-    private:
-        std::string m_label;
-        std::chrono::high_resolution_clock::time_point m_start;
 };
 
 

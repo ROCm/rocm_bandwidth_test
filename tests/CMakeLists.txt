@@ -99,7 +99,8 @@ set(AMD_TEST_PROJECT_LINK_LIBRARIES "${AMD_TEST_LINK_LIBRARIES}" CACHE STRING "T
 set(AMD_TEST_PROJECT_COMMON_TARGET_NAME "tst_common" CACHE STRING "Tests: Common Target Name" FORCE)
 set(AMD_TEST_PROJECT_HELPERS_TARGET_NAME "tst_helpers" CACHE STRING "Tests: Helpers"  FORCE)
 set(AMD_TEST_PROJECT_PLUGINS_TARGET_NAME "tst_plugins" CACHE STRING "Tests: Plugins"  FORCE)
-set(AMD_TEST_PROJECT_LOCAL_LINK_LIBRARIES "${AMD_TEST_PROJECT_COMMON_TARGET_NAME};${AMD_TEST_PROJECT_HELPERS_TARGET_NAME};${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME};tst_unit")
+set(AMD_TEST_PROJECT_UNIT_TARGET_NAME "tst_unit" CACHE STRING "Tests: Unit Tests" FORCE)
+set(AMD_TEST_PROJECT_LOCAL_LINK_LIBRARIES "${AMD_TEST_PROJECT_COMMON_TARGET_NAME};${AMD_TEST_PROJECT_HELPERS_TARGET_NAME};${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME};${AMD_TEST_PROJECT_UNIT_TARGET_NAME}")
 
 set(AMD_TEST_PROJECT_WORKBENCH_INCLUDE_DIRECTORIES
     "${AMD_TEST_PROJECT_EXTERNAL_DEPS_DIRECTORY}"
@@ -175,20 +176,18 @@ if(AMD_APP_BUILD_PLUGIN_TESTS)
 endif()
 
 #
+# Unit-test source files are compiled into the `tst_unit` OBJECT library and
+# linked here via AMD_TEST_PROJECT_LOCAL_LINK_LIBRARIES; do not list them again
+# directly or Catch2 will see each TEST_CASE twice and fail discovery.
 add_executable(${PROJECT_NAME} 
     common/src/test_cases_common.cpp
     helpers/src/test_cases_helpers.cpp
     plugins/src/test_cases_plugins.cpp
-    unit/src/test_string_utils.cpp
-    unit/src/test_plugin_management.cpp
-    unit/src/test_environment_utils.cpp
-    unit/src/test_memory_utils.cpp
-    unit/src/test_workbench_api.cpp
-    unit/src/test_gpu_interface.cpp
-    unit/src/test_rbt_plugin.cpp
-    unit/src/test_transferbench_types.cpp
 )
-target_compile_definitions(${PROJECT_NAME} PUBLIC AMD_WORK_BENCH_PROJECT_NAME="${PROJECT_NAME}")
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+    AMD_WORK_BENCH_PROJECT_NAME="${PROJECT_NAME}"
+    AMD_WORK_BENCH_VERSION="${AMD_APP_ROCM_BUILD_BINARY_VERSION_INTERNAL}"
+)
 
 #
 # Include directories for external dependencies
@@ -197,6 +196,8 @@ foreach(INCLUDE_DIRECTORY IN LISTS AMD_TEST_PROJECT_INCLUDE_DIRECTORIES)
         PRIVATE 
             $<BUILD_INTERFACE:${INCLUDE_DIRECTORY}>
             $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/plugins/common>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/plugins/rbt/include>
+            $<BUILD_INTERFACE:${AMD_TEST_PROJECT_3RD_PARTY_DEPS_DIRECTORY}/CLI11/include>
     )
 endforeach()
 
@@ -221,7 +222,7 @@ add_dependencies(${PROJECT_NAME}
     ${AMD_TEST_PROJECT_COMMON_TARGET_NAME}
     ${AMD_TEST_PROJECT_HELPERS_TARGET_NAME}
     ${AMD_TEST_PROJECT_PLUGINS_TARGET_NAME}
-    tst_unit
+    ${AMD_TEST_PROJECT_UNIT_TARGET_NAME}
 )
 
 #   Enabled coverage for the tests with debug build type
@@ -268,9 +269,11 @@ endif()
 
 #
 # CTest test discovery
+#   Include all top-level test categories so CI/CTest picks them up.
+#   Unit tests use the [unit] tag and live under tests/unit/.
 include(Catch)
 catch_discover_tests(${PROJECT_NAME}
-    TEST_SPEC "[common],[helpers],[plugins]"
+    TEST_SPEC "[common],[helpers],[plugins],[unit]"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 

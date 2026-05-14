@@ -212,23 +212,9 @@ make rbt_unit_tests
 | `[rbt]` | RBT plugin tests |
 | `[transferbench]` | TransferBench type tests |
 | `[!mayfail]` | Tests that may fail (e.g., no GPU) |
+| `[contract]` | Contract/specification tests for types that mirror external headers |
 
 ## Test Fixtures
-
-### TestFixture
-
-Base class for test setup/teardown:
-
-```cpp
-class TestFixture
-{
-public:
-    virtual void setup();
-    virtual void teardown();
-    static auto get_temp_file_path(const std::string& prefix) -> std::filesystem::path;
-    static auto has_gpu_support() -> bool;
-};
-```
 
 ### MockPlugin
 
@@ -240,19 +226,6 @@ class MockPlugin
 public:
     static constexpr const char* NAME = "mock_test_plugin";
     static auto create_functionality() -> PluginFunctionality_t;
-};
-```
-
-### ScopedTimer
-
-Performance measurement utility:
-
-```cpp
-class ScopedTimer
-{
-public:
-    explicit ScopedTimer(const std::string& label);
-    auto elapsed_us() const -> int64_t;
 };
 ```
 
@@ -315,4 +288,4 @@ MIT License - See [LICENSE.md](../../LICENSE.md) for details.
 
 ---
 
-*Copyright (c) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.*
+*Copyright (c) 2023-2026 Advanced Micro Devices, Inc. All rights reserved.*

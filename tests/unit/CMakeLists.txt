@@ -44,8 +44,10 @@ set(AMD_UNIT_TEST_HEADERS
     include/tst_unit.hpp
 )
 
-# Create static library for unit tests
-add_library(${AMD_UNIT_TEST_TARGET_NAME} STATIC
+# Create object library for unit tests so all self-registering test translation
+# units are linked into the final test executable instead of being hidden in a
+# static archive that the linker may partially discard.
+add_library(${AMD_UNIT_TEST_TARGET_NAME} OBJECT
     ${AMD_UNIT_TEST_SOURCES}
     ${AMD_UNIT_TEST_HEADERS}
 )
@@ -65,6 +67,12 @@ target_include_directories(${AMD_UNIT_TEST_TARGET_NAME}
 target_include_directories(${AMD_UNIT_TEST_TARGET_NAME}
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/plugins/common>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/plugins/rbt/include>
+        # CLI11 is a header-only library (single-header layout) used by the
+        # RBT plugin (plugins/rbt/src/plugin_rocm_bandwidth_test.cpp). The unit
+        # tests for that plugin re-create its CLI11 wiring against the same
+        # vendored copy to keep behavior aligned with production.
+        $<BUILD_INTERFACE:${AMD_TEST_PROJECT_3RD_PARTY_DEPS_DIRECTORY}/CLI11/include>
 )
 
 # Link dependencies
@@ -83,9 +91,15 @@ set_target_properties(${AMD_UNIT_TEST_TARGET_NAME}
 )
 
 # Compile definitions
+#   AMD_WORK_BENCH_VERSION: needed by MockPlugin to mirror the production
+#       plugin compatibility-string macro defined in awb/plugins.hpp. The
+#       macro is normally injected only into work_bench_api.cpp; the unit
+#       test library re-defines it here from the same CMake variable so
+#       that MockPlugin reports a value consistent with the real build.
 target_compile_definitions(${AMD_UNIT_TEST_TARGET_NAME}
     PUBLIC
         AMD_WORK_BENCH_PROJECT_NAME="${AMD_TEST_PROJECT_NAME}"
+        AMD_WORK_BENCH_VERSION="${AMD_APP_ROCM_BUILD_BINARY_VERSION_INTERNAL}"
 )
 
 # Export the target name

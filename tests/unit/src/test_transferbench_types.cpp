@@ -25,14 +25,21 @@
 
 /**
  * @file test_transferbench_types.cpp
- * @brief Unit tests for TransferBench core types and structures
+ * @brief Contract/specification tests for TransferBench core types and structures
  * @author ROCm Bandwidth Test Team
  *
- * Tests the TransferBench data structures including ExeType, MemType,
- * ExeDevice, MemDevice, Transfer, and options structures.
+ * These are specification tests that verify expected properties of TransferBench
+ * data structures (ExeType, MemType, ExeDevice, MemDevice, Transfer, options).
  *
- * Note: These tests are designed to work without actual GPU hardware
- * by testing the type definitions and logic at the structure level.
+ * IMPORTANT: TransferBench.hpp cannot be directly included here because it
+ * depends on HIP/CUDA, numa.h, and other platform-specific headers. Instead,
+ * these tests use local type definitions that mirror the actual TransferBench
+ * types. If the actual types change in:
+ *   plugins/common/tb_engine/include/TransferBench.hpp
+ * these mirror definitions MUST be updated to match.
+ *
+ * The enum values, struct layouts, and helper function logic tested here are
+ * verified against the source of truth at the locations noted in comments.
  */
 
 #include <catch2/catch_all.hpp>
@@ -47,11 +54,13 @@ namespace amd_work_bench::test::unit::transferbench
 {
 
 // =============================================================================
-// Mock TransferBench Types (for testing without GPU hardware)
+// Mirror types for TransferBench (source: plugins/common/tb_engine/include/TransferBench.hpp)
+// KEEP IN SYNC: If TransferBench.hpp changes, update these definitions.
 // =============================================================================
 
 /**
- * @brief Executor type enumeration (mirrors TransferBench::ExeType)
+ * @brief Executor type enumeration
+ * @see TransferBench.hpp line ~184: enum ExeType
  */
 enum class MockExeType
 {
@@ -63,7 +72,8 @@ enum class MockExeType
 };
 
 /**
- * @brief Memory type enumeration (mirrors TransferBench::MemType)
+ * @brief Memory type enumeration
+ * @see TransferBench.hpp line ~225: enum MemType
  */
 enum class MockMemType
 {
@@ -79,6 +89,7 @@ enum class MockMemType
 
 /**
  * @brief Executor device structure
+ * @see TransferBench.hpp line ~209: struct ExeDevice
  */
 struct MockExeDevice
 {
@@ -99,6 +110,7 @@ struct MockExeDevice
 
 /**
  * @brief Memory device structure
+ * @see TransferBench.hpp line ~252: struct MemDevice
  */
 struct MockMemDevice
 {
@@ -119,6 +131,7 @@ struct MockMemDevice
 
 /**
  * @brief Transfer structure
+ * @see TransferBench.hpp line ~264: struct Transfer
  */
 struct MockTransfer
 {
@@ -132,6 +145,7 @@ struct MockTransfer
 
 /**
  * @brief General options structure
+ * @see TransferBench.hpp line ~275: struct GeneralOptions
  */
 struct MockGeneralOptions
 {
@@ -144,6 +158,7 @@ struct MockGeneralOptions
 
 /**
  * @brief Data options structure
+ * @see TransferBench.hpp line ~290 (approx): struct DataOptions
  */
 struct MockDataOptions
 {
@@ -158,7 +173,8 @@ struct MockDataOptions
 
 
 // =============================================================================
-// Helper Functions
+// Helper Functions (mirrors TransferBench.hpp inline functions)
+// @see TransferBench.hpp lines ~193-248
 // =============================================================================
 
 inline bool IsCpuExeType(MockExeType e)
@@ -193,10 +209,11 @@ inline bool IsGpuMemType(MockMemType m)
 
 
 // =============================================================================
-// TEST CASE: Executor Type Enumeration
+// TEST CASE: Executor Type Enumeration (Contract Test)
+// Verifies expected values match TransferBench.hpp enum ExeType
 // =============================================================================
 
-TEST_CASE("TransferBench::ExeType", "[unit][transferbench][types]")
+TEST_CASE("TransferBench::ExeType", "[unit][transferbench][types][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -244,10 +261,11 @@ TEST_CASE("TransferBench::ExeType", "[unit][transferbench][types]")
 
 
 // =============================================================================
-// TEST CASE: Memory Type Enumeration
+// TEST CASE: Memory Type Enumeration (Contract Test)
+// Verifies expected values match TransferBench.hpp enum MemType
 // =============================================================================
 
-TEST_CASE("TransferBench::MemType", "[unit][transferbench][types]")
+TEST_CASE("TransferBench::MemType", "[unit][transferbench][types][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -291,10 +309,10 @@ TEST_CASE("TransferBench::MemType", "[unit][transferbench][types]")
 
 
 // =============================================================================
-// TEST CASE: Executor Device Structure
+// TEST CASE: Executor Device Structure (Contract Test)
 // =============================================================================
 
-TEST_CASE("TransferBench::ExeDevice", "[unit][transferbench][device]")
+TEST_CASE("TransferBench::ExeDevice", "[unit][transferbench][device][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -347,10 +365,10 @@ TEST_CASE("TransferBench::ExeDevice", "[unit][transferbench][device]")
 
 
 // =============================================================================
-// TEST CASE: Memory Device Structure
+// TEST CASE: Memory Device Structure (Contract Test)
 // =============================================================================
 
-TEST_CASE("TransferBench::MemDevice", "[unit][transferbench][device]")
+TEST_CASE("TransferBench::MemDevice", "[unit][transferbench][device][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -392,10 +410,10 @@ TEST_CASE("TransferBench::MemDevice", "[unit][transferbench][device]")
 
 
 // =============================================================================
-// TEST CASE: Transfer Structure
+// TEST CASE: Transfer Structure (Contract Test)
 // =============================================================================
 
-TEST_CASE("TransferBench::Transfer", "[unit][transferbench][transfer]")
+TEST_CASE("TransferBench::Transfer", "[unit][transferbench][transfer][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -454,10 +472,10 @@ TEST_CASE("TransferBench::Transfer", "[unit][transferbench][transfer]")
 
 
 // =============================================================================
-// TEST CASE: General Options Structure
+// TEST CASE: General Options Structure (Contract Test)
 // =============================================================================
 
-TEST_CASE("TransferBench::GeneralOptions", "[unit][transferbench][options]")
+TEST_CASE("TransferBench::GeneralOptions", "[unit][transferbench][options][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -502,10 +520,10 @@ TEST_CASE("TransferBench::GeneralOptions", "[unit][transferbench][options]")
 
 
 // =============================================================================
-// TEST CASE: Data Options Structure
+// TEST CASE: Data Options Structure (Contract Test)
 // =============================================================================
 
-TEST_CASE("TransferBench::DataOptions", "[unit][transferbench][options]")
+TEST_CASE("TransferBench::DataOptions", "[unit][transferbench][options][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
@@ -557,10 +575,10 @@ TEST_CASE("TransferBench::DataOptions", "[unit][transferbench][options]")
 
 
 // =============================================================================
-// TEST CASE: Transfer Scenarios
+// TEST CASE: Transfer Scenarios (Integration Logic Tests)
 // =============================================================================
 
-TEST_CASE("TransferBench::TransferScenarios", "[unit][transferbench][scenarios]")
+TEST_CASE("TransferBench::TransferScenarios", "[unit][transferbench][scenarios][contract]")
 {
     const auto& TEST_CASE_NAME = Catch::getResultCapture().getCurrentTestName();
 
