@@ -95,6 +95,7 @@ list(APPEND INSTALL_TYPE_LIST
     "ROCM_BUILD_PACKAGE"
     "STANDALONE_BUILD_PACKAGE"
     "ENGINEERING_BUILD_PACKAGE"
+    "ROCM_RELOCATABLE_PACKAGE"
 )
 
 macro(setup_binary_permissions)
@@ -378,6 +379,52 @@ function(dynamic_install install_flag install_type target_install_base_path comp
             foreach(copy_file ${LIBAMD_DYNLIB_MGMT_FILES})
                 file(COPY ${copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
             endforeach()
+
+            foreach(copy_file ${LIBAMD_WORK_BENCH_FILES})
+                file(COPY ${copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
+            endforeach()
+
+            foreach(copy_file ${LIBAMD_COMMON_TB_ENGINE_FILES})
+                file(COPY ${copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
+            endforeach()
+
+            foreach(copy_file ${LIBAMD_PLUGIN_TB_FILES})
+                file(COPY ${copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
+            endforeach()
+
+            set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_TARGET_INSTALL_PATH}/${AMD_ROCM_TARGET_INSTALL_LIBDIR}/${AMD_TARGET_NAME}/${AMD_ROCM_TARGET_INSTALL_PLUGINSDIR}")
+            file(MAKE_DIRECTORY ${AMD_TARGET_INSTALL_PATH})
+            foreach(copy_file ${LIBAMD_PLUGINS_FILES})
+                file(COPY ${copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
+            endforeach()
+
+            set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_TARGET_INSTALL_PATH}/${AMD_ROCM_TARGET_INSTALL_BINDIR}")
+            file(MAKE_DIRECTORY ${AMD_TARGET_INSTALL_PATH})
+            foreach(bin_copy_file ${BINAMD_WORK_BENCH_FILES})
+                file(COPY ${bin_copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
+            endforeach()
+
+            set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_TARGET_INSTALL_PATH}/${AMD_ROCM_TARGET_INSTALL_BINDIR}")
+            file(MAKE_DIRECTORY ${AMD_TARGET_INSTALL_PATH})
+            foreach(bin_copy_file ${BINAMD_RUN_PLUGIN_FILES})
+                file(COPY ${bin_copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)
+            endforeach()
+
+        elseif("${install_flag}" STREQUAL "ROCM_RELOCATABLE_PACKAGE")
+            set(AMD_ROCM_TARGET_INSTALL_PATH "${AMD_TARGET_INSTALL_STAGING}${AMD_TARGET_INSTALL_PREFIX}")
+            set(AMD_ROCM_TARGET_INSTALL_LIBDIR "lib")
+            set(AMD_ROCM_TARGET_INSTALL_PLUGINSDIR "plugins")
+            set(AMD_ROCM_TARGET_INSTALL_INCLUDEDIR "include")
+            set(AMD_ROCM_TARGET_INSTALL_BINDIR "bin")
+            set(AMD_ROCM_TARGET_INSTALL_DOCDIR "share/doc")
+            set(AMD_ROCM_TARGET_INSTALL_SCRIPTDIR "bin/scripts")
+            set(AMD_ROCM_TARGET_INSTALL_CONFIGDIR "etc/${AMD_TARGET_NAME}")
+            set(AMD_ROCM_TARGET_INSTALL_EXPORTDIR "lib/cmake/${AMD_TARGET_NAME}")
+            set(AMD_ROCM_TARGET_INSTALL_SYMLINKDIR "bin")
+
+            message(STATUS "  >> INSTALL_BASE_PATH: ${AMD_ROCM_TARGET_INSTALL_PATH} ...")
+            set(AMD_TARGET_INSTALL_PATH "${AMD_ROCM_TARGET_INSTALL_PATH}/${AMD_ROCM_TARGET_INSTALL_LIBDIR}")
+            file(MAKE_DIRECTORY ${AMD_TARGET_INSTALL_PATH})
 
             foreach(copy_file ${LIBAMD_WORK_BENCH_FILES})
                 file(COPY ${copy_file} DESTINATION ${AMD_TARGET_INSTALL_PATH} FOLLOW_SYMLINK_CHAIN USE_SOURCE_PERMISSIONS)

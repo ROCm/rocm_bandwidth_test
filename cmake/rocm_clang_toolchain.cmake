@@ -67,6 +67,16 @@ cmake_minimum_required(VERSION 3.20)
 #               NAME="Debian GNU/Linux"
 #           We will try to fix it with (prepending a newline manually, simulating line-by-line):
 #               string(REGEX MATCH "\nNAME=\"([^\"]+)\"" _name_match "\n${OS_RELEASE_FILE_INFO}")
+
+#
+# --- ROCm default compiler/toolchain ---
+# If already set, skip further processing.
+if(IS_LIGHTNING_CLANG_DEFAULT_COMPILER AND ROCM_CLANG_TOOLCHAIN_USED)
+    message(STATUS ">> ROCm 'Lightning Clang++' toolchain is already set as default compiler.")
+    return()
+endif()
+
+
 set(SKIP_BUILD_PROCESS OFF)
 set(OS_RELEASE_FILE "/etc/os-release")
 if(EXISTS ${OS_RELEASE_FILE})
@@ -103,11 +113,15 @@ else()
 endif()
 
 #
-# --- Path to Clang/LLVM binaries within the ROCm installation ---
-set(ROCM_LLVM_BIN_DIR "${ROCM_BASE_PATH}/lib/llvm/bin")
+# --- Path to Clang/LLVM root directory, (ie: /opt/rocm/lib/llvm/) ---
+if(DEFINED ENV{ROCM_LLVM_PATH})
+    set(ROCM_LLVM_BIN_DIR "$ENV{ROCM_LLVM_PATH}/bin")
+else()
+    set(ROCM_LLVM_BIN_DIR "${ROCM_BASE_PATH}/lib/llvm/bin")
+endif()
+
 message(STATUS ">> ROCM_INSTALL_PATH detected: '${ROCM_BASE_PATH}'")
 message(STATUS ">> Expecting Clang/LLVM tools in: '${ROCM_LLVM_BIN_DIR}'")
-
 if(NOT IS_DIRECTORY "${ROCM_LLVM_BIN_DIR}")
     message(FATAL_ERROR ">> ROCM_LLVM_BIN_DIR is not a valid directory: '${ROCM_LLVM_BIN_DIR}'\n"
                         "  Check ROCM_INSTALL_PATH and the LLVM binary path structure.")
