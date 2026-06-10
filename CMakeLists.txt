@@ -136,6 +136,9 @@ else()
 endif()
 set(AMD_PROJECT_VERSION_FULL "${AMD_PROJECT_VERSION_MAJOR}.${AMD_PROJECT_VERSION_MINOR}.${AMD_PROJECT_VERSION_PATCH}")
 
+# ROCm major version for package naming and install paths (per RFC0012)
+set(ROCM_MAJOR_VERSION "0" CACHE STRING "ROCm major version (e.g. 7 for ROCm 7.x)")
+
 #
 project(${AMD_TARGET_NAME}
     VERSION ${AMD_TARGET_VERSION_TEXT}

@@ -1427,21 +1427,17 @@ macro(setup_distribution_package)
         endif()
         string(REPLACE "_" "-" AMD_TARGET_BUNDLE_BASE_NAME "${AMD_TARGET_BUNDLE_BASE_NAME}")
 
+        set(AMD_TARGET_PKG_SHORT_NAME "rbt")
         set(AMD_TARGET_INSTALL_STAGING "/var/tmp/${AMD_TARGET_NAME}/_staging")
         set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
-        set(CPACK_PACKAGE_NAME "amdrocm${ROCM_MAJOR_VERSION}-${AMD_TARGET_BUNDLE_BASE_NAME}")
+        set(CPACK_PACKAGE_NAME "amdrocm${ROCM_MAJOR_VERSION}-${AMD_TARGET_PKG_SHORT_NAME}")
 
         ## Standard package directives for all package build types
         string(TIMESTAMP CURRENT_BUILD_YEAR "%Y")
         set(AMD_PROJECT_COPYRIGHT_ORGANIZATION "Advanced Micro Devices, Inc. All rights reserved.")
         set(AMD_PROJECT_COPYRIGHT_NOTE "Copyright (c) ${CURRENT_BUILD_YEAR} ${AMD_PROJECT_COPYRIGHT_ORGANIZATION}")
-
         set(CPACK_PACKAGE_VENDOR ${AMD_PROJECT_AUTHOR_ORGANIZATION})
-        set(CPACK_PACKAGE_VERSION_MAJOR ${AMD_PROJECT_VERSION_MAJOR})
-        set(CPACK_PACKAGE_VERSION_MINOR ${AMD_PROJECT_VERSION_MINOR})
-        set(CPACK_PACKAGE_VERSION_PATCH ${AMD_PROJECT_VERSION_PATCH})
         set(CPACK_PACKAGE_CONTACT ${AMD_PROJECT_AUTHOR_MAINTAINER})
-        set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 
         # Debian package specific variables
         set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${AMD_PROJECT_GITHUB_REPO})
@@ -1478,10 +1474,6 @@ macro(setup_distribution_package)
             set(ROCM_MAJOR_VERSION "7")
         endif()
 
-        if(DEFINED ENV{CPACK_RPM_PACKAGE_RELEASE})
-            set(CPACK_RPM_PACKAGE_RELEASE "$ENV{CPACK_RPM_PACKAGE_RELEASE}")
-        endif()
-
         # Use the actual install prefix (caller-controlled in relocatable mode)
         # rather than hard-coded /opt/... paths.
         if(DEFINED CPACK_PACKAGING_INSTALL_PREFIX)
@@ -1496,13 +1488,21 @@ macro(setup_distribution_package)
         )
 
         #
+        set(CPACK_PACKAGE_VERSION_MAJOR ${AMD_PROJECT_VERSION_MAJOR})
+        set(CPACK_PACKAGE_VERSION_MINOR ${AMD_PROJECT_VERSION_MINOR})
+        set(CPACK_PACKAGE_VERSION_PATCH ${AMD_PROJECT_VERSION_PATCH})
+        set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+        set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ROCm utility tool for benchmarking device performance")
+
         ## DEB
         set(CPACK_DEBIAN_PACKAGE_NAME       "${CPACK_PACKAGE_NAME}")
         set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
         set(CPACK_DEBIAN_PACKAGE_DEPENDS    "numactl, libnuma1, hsa-rocr, libstdc++6")
         set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
-        if(DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
-            set(CPACK_DEBIAN_PACKAGE_RELEASE "$ENV{CPACK_DEBIAN_PACKAGE_RELEASE}")
+        if (DEFINED ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
+            set(CPACK_DEBIAN_PACKAGE_RELEASE $ENV{CPACK_DEBIAN_PACKAGE_RELEASE})
+        else()
+            set(CPACK_DEBIAN_PACKAGE_RELEASE "local")
         endif()
 
         #
@@ -1511,21 +1511,25 @@ macro(setup_distribution_package)
         set(CPACK_RPM_PACKAGE_LICENSE "MIT")
         set(CPACK_RPM_PACKAGE_REQUIRES "numactl, hsa-rocr")
         set(CPACK_RPM_PACKAGE_VENDOR  "${CPACK_PACKAGE_VENDOR}")
+        if(DEFINED ENV{CPACK_RPM_PACKAGE_RELEASE})
+            set(CPACK_RPM_PACKAGE_RELEASE $ENV{CPACK_RPM_PACKAGE_RELEASE})
+        else()
+            set(CPACK_RPM_PACKAGE_RELEASE "local")
+        endif()
+
+        # distro changes
+        if(CPACK_RPM_PACKAGE_RELEASE)
+            set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
+        endif()
 
         #
-        ##
-        set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ROCm utility tool for benchmarking device performance")
-
-        #
-        ## TGZ
-        set(CPACK_ARCHIVE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-Linux")
+        ## TGZ (STGZ): same version + release scheme as DEB/RPM — <name>-<ver>-<release>-Linux.tar.gz
+        ## CPACK_RPM_PACKAGE_RELEASE is set from the build script (e.g. r0711.20260423 or PR suffix)
+        set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_RPM_PACKAGE_RELEASE}-Linux" CACHE STRING "STGZ/CPack output file stem" FORCE)
+        ##set(CPACK_ARCHIVE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}+Linux")
         set(CPACK_GENERATOR "DEB;RPM;TGZ")
 
-        if(DEFINED ENV{ROCM_LIBPATCH_VERSION})
-            set(ROCM_VERSION_FOR_PACKAGE $ENV{ROCM_LIBPATCH_VERSION})
-        endif()
         set(CPACK_SOURCE_IGNORE_FILES "${AMD_TARGET_INSTALL_STAGING}/;${CPACK_SOURCE_IGNORE_FILES}")
-        set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION}.${ROCM_VERSION_FOR_PACKAGE}")
         set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ROCm utility tool for benchmarking device performance")
 
     else()
