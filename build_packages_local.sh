@@ -135,6 +135,7 @@ fetch_latest_rocm_version() {
     local latest_version
     latest_version=$(wget -qO- "$ROCM_SDK_INDEX_URL" 2>/dev/null | \
         grep -oP "therock-dist-linux-${gpu_family}-\K[^<\"]+(?=\.tar\.gz)" | \
+        grep -v '^ADHOCBUILD' | \
         sort -V | tail -1)
 
     if [ -z "$latest_version" ]; then
