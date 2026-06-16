@@ -84,8 +84,13 @@ elif [ "$EVENT" = "push" ]; then
       echo "ROCm SDK channel: release (push to amd-mainline or release/* — includes merge)"
       ;;
     *)
-      nightly_build
-      echo "ROCm SDK channel: nightly (push to feature branch)"
+      if [ -n "$IN_VER" ] || [ -n "$VAR_VER" ]; then
+        format_build
+        echo "ROCm SDK channel: auto (push to feature branch with pinned version — format selects tarball host)"
+      else
+        nightly_build
+        echo "ROCm SDK channel: nightly (push to feature branch)"
+      fi
       ;;
   esac
 elif [ "$EVENT" = "workflow_dispatch" ]; then
