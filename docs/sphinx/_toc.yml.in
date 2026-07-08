@@ -5,11 +5,14 @@ subtrees:
 - caption: Install
   entries:
   - file: install/install.rst
-    title: Installation
 
 - caption: How to
   entries:
   - file: how-to/using_rocm_bandwidth_test.rst
+
+- caption: Reference
+  entries:
+  - file: reference/migration_guide.rst
 
 - caption: About
   entries:
