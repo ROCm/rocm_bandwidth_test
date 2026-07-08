@@ -138,8 +138,8 @@ interface.
 
 For RVS installation and usage instructions, see the :doc:`RVS documentation <rocmvalidationsuite:index>`.
 
-Support
-========
+Tool support
+=============
 
 RVS maintainers support RVS itself — the executable, the test framework, and the selectable-test
 entry points. Issues specific to a bundled low-level tool such as TransferBench remain with that
