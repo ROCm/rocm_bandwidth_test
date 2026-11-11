@@ -220,7 +220,7 @@ jobs:
             python3-pip
 
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ matrix.branch }}
           submodules: recursive
@@ -360,14 +360,14 @@ jobs:
           AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
 
       - name: Upload DEB Package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubuntu-22.04-deb-${{ matrix.branch_prefix }}
           path: build/amdrocm*-rbt*.deb
           if-no-files-found: error
 
       - name: Upload TGZ Package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubuntu-22.04-tgz-${{ matrix.branch_prefix }}
           path: build/amdrocm*-rbt*.tar.gz
@@ -397,7 +397,7 @@ jobs:
           yum install -y git
 
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ matrix.branch }}
           submodules: recursive
@@ -528,14 +528,14 @@ jobs:
           AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
 
       - name: Upload RPM Package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: centos-rpm-${{ matrix.branch_prefix }}
           path: build/amdrocm*-rbt*.rpm
           if-no-files-found: error
 
       - name: Upload TGZ Package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: centos-tgz-${{ matrix.branch_prefix }}
           path: build/amdrocm*-rbt*.tar.gz
@@ -621,7 +621,7 @@ jobs:
           cat build-report.md
 
       - name: Upload Build Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-report
           path: build-report.md
